@@ -212,8 +212,6 @@ def box_v_cylinder(
         r_cylinder
     )
 
-
-
 @ti.func
 def project_cylinder(
     cylinder_axis         : ti.types.vector(3, float),
