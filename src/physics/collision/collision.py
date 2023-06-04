@@ -2,7 +2,7 @@
 import taichi as ti
 
 @ti.dataclass
-def CollisionResponse():
+class CollisionResponse:
     collision      : bool #ti.types.i32
     normal         : ti.types.vector(3, float)
     penetration    : ti.types.f32
