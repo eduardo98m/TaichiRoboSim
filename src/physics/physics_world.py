@@ -97,7 +97,9 @@ class PhysicsWorld():
     def set_up_simulation(self):
         self.rigid_bodies               = RigidBody.field(shape=(self.n_bodies,))
         
-        self.rigid_bodies_transformations  = tm.mat4.field(shape=(self.n_bodies,))
+        if self.visualizer_active:
+            self.rigid_bodies_transformations  = tm.mat4.field(shape=(self.n_bodies,))
+            self.set_visual_objects()
         # Add the rigid bodies in the rigid bodies field
         for i in range(self.n_bodies):
             self.rigid_bodies[i] = self.bodies_list[i] 
@@ -390,6 +392,10 @@ class PhysicsWorld():
             self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)
             self.solve_velocities(h)
+        
+        if self.visualizer_active:
+            self.compute_transformations()
+            self.render_collision_bodies()
     
     @ti.kernel
     def compute_transformations(self):
