@@ -88,14 +88,15 @@ class PlaneCollider:
     offset: ti.types.f32
     aabb  : ti.types.matrix(2,3, float)
     type  : ti.types.u8 = PLANE
+    length: ti.types.f32 = 1000
 
     @ti.func
-    def compute_aabb(self, position, orientation):
-        self.aabb[0] = position - 1000 * self.normal
-        self.aabb[1] = position + 1000 * self.normal
+    def compute_aabb(self):
+        self.aabb[0] = ti.Vector([-self.length, -self.length, -self.length])
+        self.aabb[1] = ti.Vector([ self.length,  self.length,  self.length])
 
 @ti.dataclass
-class HeightFieldCollider():
+class HeightFieldCollider:
     """
     Class for height field colliders
 

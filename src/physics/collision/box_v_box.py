@@ -19,9 +19,9 @@ def box_v_box(
 ) -> CollisionResponse:
     
     # Get the face normals of each box
-    axes       = getAxes(orientation1, orientation2)
-    vertices_1 = getVertices(box1.half_extents, position1, orientation1 )
-    vertices_2 = getVertices(box2.half_extents, position2, orientation2 )
+    axes       = get_boxes_axes(orientation1, orientation2)
+    vertices_1 = get_box_vertices(box1.half_extents, position1, orientation1 )
+    vertices_2 = get_box_vertices(box2.half_extents, position2, orientation2 )
     
     # Test each axis
     minOverlap = float('inf')
@@ -40,7 +40,7 @@ def box_v_box(
         projection_2_min, projection_2_max = project(vertices_2, axis)
         
         # Check if the projections overlap
-        overlap, dir = getOverlap(projection_1_min, 
+        overlap, dir = get_overlap(projection_1_min, 
                              projection_1_max, 
                              projection_2_min, 
                              projection_2_max)
@@ -89,7 +89,7 @@ def sphere_v_box(
     # Test each axis
     minOverlap = float('inf')
     direction = 0.0
-    vertices = getVertices(box.half_extents, box_position, box_orientation)
+    vertices = get_box_vertices(box.half_extents, box_position, box_orientation)
     for i in range(axes.n):
         axis = axes[i]
         
@@ -102,7 +102,7 @@ def sphere_v_box(
         projection_box_min, projection_box_max = project(vertices, axis)
         
         # Check if the projections overlap
-        overlap, dir = getOverlap(projection_sphere_min,
+        overlap, dir = get_overlap(projection_sphere_min,
                                   projection_sphere_max,
                                   projection_box_min,
                                   projection_box_max)
@@ -158,7 +158,7 @@ def box_v_cylinder(
     # Test each axis
     minOverlap = float('inf')
     direction = 0.0
-    vertices = getVertices(box.half_extents, box_position, box_orientation)
+    vertices = get_box_vertices(box.half_extents, box_position, box_orientation)
 
     # We also calculate the cyllinder top and bottom vertices
     top_center    = cylinder_position + cylinder_axis * (cylinder.height / 2)
@@ -186,7 +186,7 @@ def box_v_cylinder(
                                                                             axis)
         
         # Check if the projections overlap
-        overlap, dir = getOverlap(projection_box_min,
+        overlap, dir = get_overlap(projection_box_min,
                                   projection_box_max,
                                   projection_cylinder_min,
                                   projection_cylinder_max)
@@ -221,7 +221,6 @@ def project_cylinder(
     axis                  : ti.types.vector(3, float)
 ) :
     
-    # Calculate the center of the cylinder's top and bottom faces
     
     # Project the top and bottom centers onto the axis
     projection_top    = tm.dot(top_center, axis) 
@@ -241,7 +240,7 @@ def project_cylinder(
 
 
 @ti.func
-def getAxes(orientation1: ti.types.vector(4, float), 
+def get_boxes_axes(orientation1: ti.types.vector(4, float), 
             orientation2: ti.types.vector(4, float)):
     # Get the face normals of each box
     axes = ti.Matrix([ [0.0, 0.0, 0.0] ] * 15 )
@@ -252,7 +251,7 @@ def getAxes(orientation1: ti.types.vector(4, float),
     axes[  : 3  , : ] = rot_mat_1
     axes[3 : 6  , : ] = rot_mat_2
 
-    axes[6 : 15 , : ] = getEdgesAxes(rot_mat_1,rot_mat_2)    
+    axes[6 : 15 , : ] = get_boxes_edges_axes(rot_mat_1,rot_mat_2)    
     
     return axes
 
@@ -268,7 +267,7 @@ def project(
    minProjection =  float('inf')
    maxProjection = -float('inf')
    
-   for i in range(vertices.n):
+   for i in range(8):
        vertex = vertices[i, :]
        projection    = tm.dot(vertex ,axis)
        minProjection = ti.min(minProjection, projection )
@@ -277,21 +276,21 @@ def project(
    return minProjection ,maxProjection
 
 @ti.func
-def getOverlap(projection_1_min, 
+def get_overlap(projection_1_min, 
                projection_1_max, 
                projection_2_min, 
                projection_2_max):
     
     overlap = ti.min(projection_1_max, projection_2_max) - ti.max(projection_1_min, projection_2_min)
 
-    # Direction of the overlap relative to the 1st box
+    # Direction of the overlap relative to the 1st collider entity
     direction = 1.0 if projection_1_min < projection_2_min else -1.0
 
     return  overlap, direction
            
 
 @ti.func
-def getVertices(half_extents : ti.types.vector(3,float), 
+def get_box_vertices(half_extents : ti.types.vector(3,float), 
                 position     : ti.types.vector(3,float), 
                 orientation  : ti.types.vector(4,float)):
    
@@ -321,7 +320,7 @@ def getVertices(half_extents : ti.types.vector(3,float),
 
 
 @ti.func
-def getEdgesAxes(
+def get_boxes_edges_axes(
                 edges_1 : ti.types.matrix(3, 3, float),
                 edges_2 : ti.types.matrix(3, 3, float)
                  ) -> ti.types.matrix(9, 3, float):
