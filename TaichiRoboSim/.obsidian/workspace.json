@@ -1,0 +1,167 @@
+{
+  "main": {
+    "id": "9cf5d6ee3e14dad0",
+    "type": "split",
+    "children": [
+      {
+        "id": "6a7449bf156fefc3",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7b3a65e33febf887",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {}
+            }
+          },
+          {
+            "id": "a74f0db1afa1e69a",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Overview.canvas",
+                "viewState": {
+                  "x": 120.93662242193307,
+                  "y": 155.07728067599334,
+                  "zoom": -0.2083333333333331
+                }
+              }
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "f94592babe838997",
+    "type": "split",
+    "children": [
+      {
+        "id": "6c698fdef1b8a8bb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "141dd53f0da1f1bf",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "5da8ddad847544b6",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              }
+            }
+          },
+          {
+            "id": "d1e5ca16a0cded24",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {}
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "532ee07230e7f2b5",
+    "type": "split",
+    "children": [
+      {
+        "id": "e687c059071cd8cb",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f1c5cabdb438579e",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Overview.canvas",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "ce9eb8a3eb218817",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Overview.canvas",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              }
+            }
+          },
+          {
+            "id": "e8d16c7b99f003e8",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true
+              }
+            }
+          },
+          {
+            "id": "3c07a06ffa9dae50",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Overview.canvas"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false
+    }
+  },
+  "active": "141dd53f0da1f1bf",
+  "lastOpenFiles": [
+    "Taichi Robo Sim (TRS).md",
+    "Overview.canvas",
+    "Untitled.md"
+  ]
+}

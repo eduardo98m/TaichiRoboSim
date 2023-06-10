@@ -1,0 +1,13 @@
+{
+	"nodes":[
+		{"id":"1e9c36231292c585","x":-460,"y":20,"width":280,"height":120,"color":"4","type":"text","text":"# Visualizer\n\n* MeshCat"},
+		{"type":"text","text":"# Physics World\n* Main component taichi","id":"d1be4c7d9e106827","x":140,"y":-10,"width":260,"height":180,"color":"6"},
+		{"id":"a0841a8a23f79e3b","x":500,"y":-100,"width":340,"height":60,"type":"text","text":"## Constraint Solver"},
+		{"type":"text","text":"## Collision Detection and Response","id":"3c3b7ec6059d46fd","x":540,"y":180,"width":500,"height":60}
+	],
+	"edges":[
+		{"id":"cc4517d4baaa7535","fromNode":"d1be4c7d9e106827","fromSide":"left","toNode":"1e9c36231292c585","toSide":"right","label":"Objects\nPosition and\nOrientation "},
+		{"id":"e0bf4bc15727c206","fromNode":"a0841a8a23f79e3b","fromSide":"left","toNode":"d1be4c7d9e106827","toSide":"right"},
+		{"id":"67d3ba3db0fe450d","fromNode":"3c3b7ec6059d46fd","fromSide":"left","toNode":"d1be4c7d9e106827","toSide":"right"}
+	]
+}
