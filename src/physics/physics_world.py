@@ -7,8 +7,10 @@ from quaternion import quaternion
 import meshcat
 import meshcat.geometry as g
 import meshcat.transformations as tf
-from colliders import colliders
-from colliders import BoxCollider, SphereCollider, CylinderCollider, HeightFieldCollider, PlaneCollider
+from renderer import render_heightfield, render_plane
+
+from collision import colliders
+from collision import BoxCollider, SphereCollider, CylinderCollider, HeightFieldCollider, PlaneCollider
 
 from constraints import hinge_joint_constraint, constraint_types
 
@@ -55,7 +57,9 @@ class PhysicsWorld():
     
     def __init__(self, 
                  dt : ti.types.f32,
-                 n_substeps: ti.types.u32) -> None:
+                 n_substeps: ti.types.u32,
+                 use_visualizer = True,
+                 visualizer_port = "4343") -> None:
         
         self.gravity_vector   = ti.Vector([0.0, -9.8, 0.0])
         
@@ -81,13 +85,23 @@ class PhysicsWorld():
         self.n_bodies         = 0
         self.dt               = dt
         self.n_substeps       = n_substeps
+
+        self.visualizer_active = use_visualizer
+        if use_visualizer:
+            zmq_url = "tcp://127.0.0.1:" + visualizer_port
+            print("Visualizer running on URL: ", zmq_url)
+            self.visualizer = meshcat.Visualizer(zmq_url=zmq_url)
+            self.visualizer.open()
     
 
     def set_up_simulation(self):
         self.rigid_bodies               = RigidBody.field(shape=(self.n_bodies,))
+        
+        self.rigid_bodies_transformations  = tm.mat4.field(shape=(self.n_bodies,))
         # Add the rigid bodies in the rigid bodies field
         for i in range(self.n_bodies):
-            self.rigid_bodies[i] = self.bodies_list[i]  
+            self.rigid_bodies[i] = self.bodies_list[i] 
+        
         n_cyllinder_colliders = len(self.cyllinder_colliders_list)
         self.cyllinder_colliders        = CylinderCollider.field(shape=(n_cyllinder_colliders,))
         for i in range(n_cyllinder_colliders):
@@ -376,6 +390,83 @@ class PhysicsWorld():
             self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)
             self.solve_velocities(h)
+    
+    @ti.kernel
+    def compute_transformations(self):
+        """
+            Compute the transformations.
+        """
+        for i in range(self.n_rigid_bodies):
+            body = self.bodies_list[i]
+            if body.is_fixed: continue
+            self.rigid_bodies_transformations[i] = body.get_transformation_matrix()
+            
+    
+
+    def set_visual_objects(self):
+        
+        for body in self.bodies_list:
+            name = "body " + i
+            collider_type = body.collider_type
+            # Get the collider from the collider list
+            collider = self.get_collider_info(collider_type, body.collider_idx)
+
+            if collider_type == colliders.BOX:
+                full_extents = collider.half_extents * 2.0                
+                self.visualizer[name].set_object(
+                                                 g.Box(full_extents.to_numpy()), 
+                                                 material = g.MeshPhongMaterial(color=0xff0000))
+            elif collider_type == colliders.SPHERE:
+                radius = collider.radius
+                self.visualizer[name].set_object( g.Sphere(radius), 
+                                                  material = g.MeshPhongMaterial(color=0xff0000))
+            elif collider_type == colliders.CYLINDER:
+                
+                radius = collider.radius
+                height = collider.height
+
+                self.visualizer[name].set_object( g.Cylinder(height, radius = radius), 
+                                                  material = g.MeshPhongMaterial(color=0xff0000))
+            
+            elif collider_type == colliders.PLANE:
+
+                normal = collider.normal.to_numpy()
+                offset = collider.offset.to_numpy()
+
+                # Create a checkerboard texture for the plane
+                texture = g.GenericMaterial(
+                    color = 0xaaaaaa,
+                    vertexColors=True
+                )
+                
+                self.visualizer[name].set_object( g.TriangularMeshGeometry(render_plane(normal, offset)), 
+                                                  material = texture)
+
+            elif collider_type == colliders.HEIGHTFIELD:
+                texture = g.GenericMaterial(
+                    color = 0xaaaaaa,
+                    wireframe = True,
+                    vertexColors=True
+                )
+
+                # TODO: render the heightfield
+
+                # self.visualizer[name].set_object( g.TriangularMeshGeometry(render_heightfield(normal, offset)),
+
+                return NotImplementedError
+
+
+    def render_collision_bodies(self):
+        """
+            Update the rigid bodies on the renderer (meshCat)
+        """
+
+        for i in range(self.n_bodies):
+            if self.bodies_list[i].is_fixed: continue
+            name = "body " + i
+            self.visualizer[name].set_transform(self.rigid_bodies_transformations[i].to_numpy())
+
+            
 
 if __name__ == "__main__":
     ti.init(arch=ti.cpu)

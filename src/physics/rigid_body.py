@@ -49,3 +49,20 @@ class RigidBody:
     def compute_dynamic_inv_inertia(self):
        rotation_matrix          = quaternion.to_rotation_matrix(self.orientation)       
        self.dynamic_inv_interia = rotation_matrix @ self.inv_inertia @ rotation_matrix.transpose()
+    
+    @ti.func
+    def compute_transformation_matrix(self) -> ti.types.matrix(4,4, float):
+
+        # Create the rotation matrix
+        rotation_matrix = quaternion.to_rotation_matrix(self.orientation)
+
+        # Create the transformation matrix
+        transformation_matrix = ti.Matrix.identity(ti.f32, 4)
+        transformation_matrix[0:3, 0:3] = rotation_matrix
+        transformation_matrix[0:3, 3]   = self.position
+
+        return transformation_matrix
+        
+
+    
+    
