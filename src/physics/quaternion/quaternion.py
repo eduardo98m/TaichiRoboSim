@@ -1,3 +1,9 @@
+"""
+    Quaternion Manipulation Module.
+
+    Author: Eduardo I. Lopez H.
+    Assoc : GIA-USB
+"""
 import taichi as ti
 
 @ti.func
@@ -6,11 +12,13 @@ def hamilton_product(
     q2: ti.types.vector(4, float)
 ) -> ti.types.vector(4, float):
     """
+    Calculates the hamilton product between two quaternions q1 and q2.
+    
     Arguments:
     ----------
-    q1 : ti.types.vector(4, float)
+    `q1` : ti.types.vector(4, float)
         -> Quaternion 1
-    q2 : ti.types.vector(4, float)
+    `q2` : ti.types.vector(4, float)
         -> Quaternion 2
     """
 
@@ -26,18 +34,28 @@ def inverse(
     q: ti.types.vector(4, float)
 ):
     """
-    Calculate the inverse of a unit quaternion a.k.a. the conjugate
+    Calculate the inverse of a unit quaternion a.k.a. the conjugate.
+    
+    Arguments
+    ---------
+    `q`: ti.types.vector(4, float)
+        -> Unit quaternion which is inverse is going to be calculated.
     """
     return ti.Vector([q[0], -q[1], -q[2], -q[3]])
 
     
-
-
 @ti.func
 def from_axis_angle(axis  : ti.types.vector(3, ti.types.f32), 
                     angle : ti.types.f32):
     """
-    Create a quaternion from an axis and an angle
+    Create a quaternion from an axis and an angle.
+
+    Arguments:
+    ---------
+    `axis` : ti.types.vector(3, ti.types.f32)
+        -> Axis
+    `angle`: ti.types.f32
+        -> Angle  
     """
     sin_a_2 = ti.sin(angle / 2)
     return ti.Vector([

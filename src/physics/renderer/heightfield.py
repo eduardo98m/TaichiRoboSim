@@ -8,18 +8,18 @@ def render_heightfield(x_cooridnates : np.ndarray,
 
     Arguments:
     ----------
-    x_cooridnates : np.ndarray
+    `x_cooridnates` : np.ndarray
         -> X coordinates of the heightfield given as a 1D array. It hass shape (n_cols,)
-    y_coordinates : np.ndarray
+    `y_coordinates` : np.ndarray
         -> Y coordinates of the heightfield given as a 1D array. It hass shape (n_rows,)
-    heightfield   : np.ndarray
+    `heightfield`   : np.ndarray
         -> Heightfield data given as a 2D array (matrix). It has shape (n_rows, n_cols)
 
     Output:
     -------
-    vertices : np.ndarray
+    `vertices` : np.ndarray
         -> Vertices of the heightfield. It should be an array of shape (n_rows * n_cols, 3)
-    faces    : np.ndarray
+    `faces`    : np.ndarray
         -> Faces of the heightfield. It should be an array of shape (n_rows * n_cols, 3)
     """
     # Get the number of rows and columns in the heightfield
