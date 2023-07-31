@@ -1,13 +1,15 @@
-
-from colliders import BoxCollider, SphereCollider, CylinderCollider
+from colliders import BoxCollider
 import taichi as ti
 from quaternion import quaternion
 from collision import CollisionResponse
 import taichi.math as tm
+from physics.collision.collision_utils import get_boxes_axes, \
+                                get_box_vertices, \
+                                get_vertices_projection_max_and_min, \
+                                get_projections_overlap
 
 
 EPSILON = 1e-6
-
 @ti.func
 def box_v_box(
     box1: BoxCollider,
@@ -17,6 +19,10 @@ def box_v_box(
     orientation1: ti.types.vector(4, float),
     orientation2: ti.types.vector(4, float)
 ) -> CollisionResponse:
+    """
+        Calculates the collision response between to box colliders.
+    
+    """
     
     # Get the face normals of each box
     axes       = get_boxes_axes(orientation1, orientation2)
@@ -36,11 +42,11 @@ def box_v_box(
                 continue
         
         # Project the boxes onto the axis
-        projection_1_min, projection_1_max = project(vertices_1, axis)
-        projection_2_min, projection_2_max = project(vertices_2, axis)
+        projection_1_min, projection_1_max = get_vertices_projection_max_and_min(vertices_1, axis)
+        projection_2_min, projection_2_max = get_vertices_projection_max_and_min(vertices_2, axis)
         
         # Check if the projections overlap
-        overlap, dir = get_overlap(projection_1_min, 
+        overlap, dir = get_projections_overlap(projection_1_min, 
                              projection_1_max, 
                              projection_2_min, 
                              projection_2_max)
@@ -68,271 +74,10 @@ def box_v_box(
         r_2
     )
 
-@ti.func
-def sphere_v_box(
-    sphere          : SphereCollider,
-    box             : BoxCollider,
-    sphere_position : ti.types.vector(3, float),
-    box_position    : ti.types.vector(3, float),
-    box_orientation : ti.types.vector(4, float)
-) -> CollisionResponse:
-    
-    # Get the box's face normals
-    box_face_normals  = quaternion.to_rotation_matrix(box_orientation)
-    
-    # Add the sphere's center-to-box vector as an additional axis
-    center_to_box_axis = (box_position - sphere_position).normalized()
-    axes = ti.Matrix([ [0.0, 0.0, 0.0] ] * 4 )
-    axes[0:3, :] = box_face_normals
-    axes[3,   :] = center_to_box_axis
-    
-    # Test each axis
-    minOverlap = float('inf')
-    direction = 0.0
-    vertices = get_box_vertices(box.half_extents, box_position, box_orientation)
-    for i in range(axes.n):
-        axis = axes[i]
-        
-        # Project the sphere onto the axis
-        # TODO : Is this correct?
-        projection_sphere_min = tm.dot(sphere_position - axis * sphere.radius, axis)
-        projection_sphere_max = tm.dot(sphere_position + axis * sphere.radius, axis)
-        
-        # Project the box onto the axis
-        projection_box_min, projection_box_max = project(vertices, axis)
-        
-        # Check if the projections overlap
-        overlap, dir = get_overlap(projection_sphere_min,
-                                  projection_sphere_max,
-                                  projection_box_min,
-                                  projection_box_max)
-        if overlap <= 0:
-            return CollisionResponse(False)
-        
-        elif overlap < minOverlap:
-            # Update the minimum overlap and collision normal
-            minOverlap = overlap
-            direction = dir
-            normal = axis
-    
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_sphere = quaternion.rotate_vector(box_orientation, direction * normal) * minOverlap
-    r_box = quaternion.rotate_vector(box_orientation, -direction * normal) * minOverlap
-    
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_sphere,
-        r_box
-    )
-
-
-@ti.func
-def box_v_cylinder(
-    box: BoxCollider,
-    cylinder: CylinderCollider,
-    box_position: ti.types.vector(3, float),
-    cylinder_position: ti.types.vector(3, float),
-    box_orientation: ti.types.vector(4, float),
-    cylinder_orientation: ti.types.vector(4, float)
-) -> CollisionResponse:
-    
-    # Get the box's face normals
-    box_face_normals  = quaternion.to_rotation_matrix(box_orientation)
-    
-    # Add the cylinder's axis as an additional axis
-    cylinder_axis = quaternion.rotate_vector(cylinder_orientation, ti.Vector([0.0, 0.0, 1.0]))
-    
-    axes = ti.Matrix([ [0.0, 0.0, 0.0] ] * 7 )
-    axes[0:3, :] = box_face_normals
-    axes[3,   :] = cylinder_axis
-    
-    
-    
-    # Add the cross products of the box's face normals and the cylinder's axis as additional axes
-    for i in range(3):
-        axes[3 + i,   :] = tm.cross(box_face_normals[i], cylinder_axis)
-    
-    # Test each axis
-    minOverlap = float('inf')
-    direction = 0.0
-    vertices = get_box_vertices(box.half_extents, box_position, box_orientation)
-
-    # We also calculate the cyllinder top and bottom vertices
-    top_center    = cylinder_position + cylinder_axis * (cylinder.height / 2)
-    bottom_center = cylinder_position - cylinder_axis * (cylinder.height / 2)
-    
-    for i in range(axes.n):
-        axis = axes[i]
-
-        if i >= 4: # These axes are not normalized as they come from a cross product
-            axis = axis.normalized()
-            # Skip the axis if it is too small
-            # TODO: Is this necessary?
-            if tm.length(axis) < EPSILON:
-                continue
-        
-        # Project the box onto the axis
-        
-        projection_box_min, projection_box_max = project(vertices, axis)
-        
-        # Project the cylinder onto the axis
-        projection_cylinder_min, projection_cylinder_max = project_cylinder(cylinder_axis, 
-                                                                            top_center,
-                                                                            bottom_center,
-                                                                            cylinder.radius,
-                                                                            axis)
-        
-        # Check if the projections overlap
-        overlap, dir = get_overlap(projection_box_min,
-                                  projection_box_max,
-                                  projection_cylinder_min,
-                                  projection_cylinder_max)
-        if overlap <= 0:
-            return CollisionResponse(False)
-        
-        elif overlap < minOverlap:
-            # Update the minimum overlap and collision normal
-            minOverlap = overlap
-            direction = dir
-            normal = axis
-    
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_box      = quaternion.rotate_vector(box_orientation, direction * normal) * minOverlap
-    r_cylinder = quaternion.rotate_vector(cylinder_orientation, -direction * normal) * minOverlap
-    
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_box,
-        r_cylinder
-    )
-
-@ti.func
-def project_cylinder(
-    cylinder_axis         : ti.types.vector(3, float),
-    top_center            : ti.types.vector(3, float),
-    bottom_center         : ti.types.vector(3, float),
-    cylinder_radius       : float,
-    axis                  : ti.types.vector(3, float)
-) :
-    
-    
-    # Project the top and bottom centers onto the axis
-    projection_top    = tm.dot(top_center, axis) 
-    projection_bottom = tm.dot(bottom_center, axis)
-    
-    # Calculate the radius of the cylinder's projection onto the axis
-
-    projection_radius = abs(cylinder_radius * tm.length(tm.cross(cylinder_axis, axis)))
-    
-    # Calculate the minimum and maximum values of the cylinder's projection onto the axis
-    projection_min = min(projection_top, projection_bottom) - projection_radius
-    projection_max = max(projection_top, projection_bottom) + projection_radius
-    
-    return (projection_min, projection_max)
 
 
 
 
-@ti.func
-def get_boxes_axes(orientation1: ti.types.vector(4, float), 
-            orientation2: ti.types.vector(4, float)):
-    # Get the face normals of each box
-    axes = ti.Matrix([ [0.0, 0.0, 0.0] ] * 15 )
-
-    rot_mat_1 = quaternion.to_rotation_matrix(orientation1)
-    rot_mat_2 = quaternion.to_rotation_matrix(orientation2)
-
-    axes[  : 3  , : ] = rot_mat_1
-    axes[3 : 6  , : ] = rot_mat_2
-
-    axes[6 : 15 , : ] = get_boxes_edges_axes(rot_mat_1,rot_mat_2)    
-    
-    return axes
-
-
-
-@ti.func
-def project(
-            vertices : ti.types.matrix(8,3,float),
-            axis     : ti.types.vector(3,float)
-            ):
-   
-   # Project each vertex of the box onto the axis
-   minProjection =  float('inf')
-   maxProjection = -float('inf')
-   
-   for i in range(8):
-       vertex = vertices[i, :]
-       projection    = tm.dot(vertex ,axis)
-       minProjection = ti.min(minProjection, projection )
-       maxProjection = ti.max(maxProjection, projection )
-   
-   return minProjection ,maxProjection
-
-@ti.func
-def get_overlap(projection_1_min, 
-               projection_1_max, 
-               projection_2_min, 
-               projection_2_max):
-    
-    overlap = ti.min(projection_1_max, projection_2_max) - ti.max(projection_1_min, projection_2_min)
-
-    # Direction of the overlap relative to the 1st collider entity
-    direction = 1.0 if projection_1_min < projection_2_min else -1.0
-
-    return  overlap, direction
-           
-
-@ti.func
-def get_box_vertices(half_extents : ti.types.vector(3,float), 
-                position     : ti.types.vector(3,float), 
-                orientation  : ti.types.vector(4,float)):
-   
-    # Get the vertices of the box in local space
-    x = half_extents[0]
-    y = half_extents[1]
-    z = half_extents[2]
-
-    localVertices = ti.Matrix([
-        [-x,-y,-z],
-        [ x,-y,-z],
-        [-x, y,-z],
-        [ x, y,-z],
-        [-x,-y, z],
-        [ x,-y, z],
-        [-x, y, z],
-        [ x, y, z]
-    ])
-
-    vertices = ti.Matrix([ [0.0, 0.0, 0.0]  ] * 8)
-
-    for i in range(8):
-        vertices[i] = quaternion.rotate_vector(orientation, localVertices[i]) + position
-    
-    return vertices
-
-
-
-@ti.func
-def get_boxes_edges_axes(
-                edges_1 : ti.types.matrix(3, 3, float),
-                edges_2 : ti.types.matrix(3, 3, float)
-                 ) -> ti.types.matrix(9, 3, float):
-
-    # Get the edge cross products of each box
-    axes = ti.Matrix([ [0.0, 0.0, 0.0] ] * 9)
-
-    for i in range(3): # 3 edges for box 1
-        for j in range(3):
-            axes[i+j, :] = tm.cross(edges_1[i, :], edges_2[j, :])
-
-    return axes
 
     
 

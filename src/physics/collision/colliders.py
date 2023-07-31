@@ -14,12 +14,12 @@ class BoxCollider:
     
     Arguments:
     ----------
-    half_extents : ti.types.vector(3, float)
-        Half widths of the box
+    `half_extents` : ti.types.vector(3, float)
+        -> Half widths of the box
     """
-    half_extents: ti.types.vector(3, float)
-    aabb       : ti.types.matrix(2,3, float)
-    type       : ti.types.u8 = BOX
+    half_extents : ti.types.vector(3, float)
+    aabb         : ti.types.matrix(2,3, float)
+    type         : ti.types.u8 = BOX
 
     @ti.func
     def compute_aabb(self, position, orientation):
@@ -33,8 +33,8 @@ class SphereCollider:
     
     Arguments:
     ----------
-    radius : ti.types.f32
-        Radius of the sphere
+    `radius` : ti.types.f32
+        -> Radius of the sphere
     """
     radius: ti.types.f32
     aabb  : ti.types.matrix(2,3, float)
@@ -52,11 +52,11 @@ class CylinderCollider:
 
     Arguments:
     ----------
-    radius : ti.types.f32
-        Radius of the cylinder
+    `radius` : ti.types.f32
+        -> Radius of the cylinder
     
-    height : ti.types.f32
-        Height of the cylinder
+    `height` : ti.types.f32
+        -> Height of the cylinder
     """
 
     radius: ti.types.f32
@@ -77,11 +77,11 @@ class PlaneCollider:
 
     Arguments:
     ----------
-    normal : ti.types.vector(3, float)
-        Normal of the plane
+    `normal` : ti.types.vector(3, float)
+        -> Normal of the plane
     
-    offset : ti.types.f32
-        Offset of the plane
+    `offset` : ti.types.f32
+        -> Offset of the plane
     """
 
     normal: ti.types.vector(3, float)
@@ -102,9 +102,8 @@ class HeightFieldCollider:
 
     Arguments:
     ----------
-    height_field : ti.types.array
-        Height field data
-    
+    `height_field` : ti.types.array
+        -> Height field data
     """
     n_rows           : ti.types.u32 
     n_cols           : ti.types.u32

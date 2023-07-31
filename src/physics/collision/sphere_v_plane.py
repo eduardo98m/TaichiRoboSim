@@ -14,8 +14,10 @@ def sphere_v_plane(
     """
         Calculates the collision response between a sphere and a plane.
 
-        Note that the plane does not have a position or orientation. This is because the plane is infinite and it is only defined by its normal and 
-        distance to the origin (the offset). The normal is a unit vector that points in the direction of the normal of the plane. 
+        Note that the plane does not have a position or orientation. 
+        This is because the plane is infinite and it is only defined by its normal and 
+        distance to the origin (the offset). The normal is a unit vector that points in 
+        the direction of the normal of the plane. 
         The distance is the distance from the origin to the plane along the normal vector.
 
 
@@ -23,12 +25,12 @@ def sphere_v_plane(
 
         Arguments: 
         ----------
-        sphere: SphereCollider
-            Sphere collider
-        plane: PlaneCollider
-            Plane collider
-        sphere_position: ti.types.vector(3, float)
-            Position of the sphere
+        `sphere`: SphereCollider
+            -> Sphere collider
+        `plane`: PlaneCollider
+            -> Plane collider
+        `sphere_position`: ti.types.vector(3, float)
+            -> Position of the sphere
 
     """
 

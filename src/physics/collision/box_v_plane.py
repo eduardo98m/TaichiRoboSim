@@ -19,17 +19,17 @@ def box_v_plane(
         Arguments:
         ----------
 
-        box: BoxCollider
-            The box collider.
+        `box`: BoxCollider
+            ->The box collider.
         
-        plane: PlaneCollider
-            The plane collider.
+        `plane`: PlaneCollider
+            ->The plane collider.
         
-        box_position: ti.types.vector(3, float)
-            The position of the box.
+        `box_position`: ti.types.vector(3, float)
+            ->The position of the box.
         
-        box_orientation: ti.types.vector(4, float)
-            The orientation of the box as a unit quaternion.
+        `box_orientation`: ti.types.vector(4, float)
+            ->The orientation of the box as a unit quaternion.
     """
 
     plane_normal = plane.normal
