@@ -14,7 +14,8 @@ from collision import BoxCollider, SphereCollider, CylinderCollider, HeightField
 
 from constraints import hinge_joint_constraint, constraint_types
 
-from rigid_body import RigidBody
+from bodies.rigid_body import RigidBody
+from collision import broad_phase_collision_detection, narrow_phase_collision_detection_and_response
 
 @ti.dataclass
 class Material():
@@ -315,7 +316,7 @@ class PhysicsWorld():
                 (body_1.dynamic_friction_coefficient + body_2.dynamic_friction_coefficient)/2
 
     @ti.func
-    def collect_collision_pairs(self):
+    def handle_collisions(self):
         """
             Collect the collision pairs.
         """
@@ -335,19 +336,23 @@ class PhysicsWorld():
             aabb_safety_expansion_1 = ti.max(tm.length(body_1.velocity) * self.dt * 2.0, 1.0)
             aabb_safety_expansion_2 = ti.max(tm.length(body_2.velocity) * self.dt * 2.0, 1.0)
 
-            broad_phase_check = self.broad_phase_collision_detection(
-                body_1.position, body_1.orientation, body_1_collider.aabb * aabb_safety_expansion_1,
-                body_2.position, body_2.orientation, body_2_collider.aabb * aabb_safety_expansion_2
+            broad_phase_check = broad_phase_collision_detection(body_1, 
+                                                                body_2, 
+                                                                body_1_collider, 
+                                                                body_2_collider, 
+                                                                aabb_safety_expansion_1, 
+                                                                aabb_safety_expansion_2
             )
 
             if broad_phase_check:
-                narrow_phase_response = self.narrow_phase_collision_detection(
-                    body_1.position, body_1.orientation, body_1.collider_type, body_1_collider,
-                    body_2.position, body_2.orientation, body_2.collider_type, body_2_collider
-                )
+                narrow_phase_response = narrow_phase_collision_detection_and_response(body_1,
+                                                                                        body_2,
+                                                                                        body_1_collider,
+                                                                                        body_2_collider
+                                                                                    )
 
                 if narrow_phase_response.collision:
-                    constraint.collision     = True
+                    constraint.collision    = True
                     constraint.r_1          = narrow_phase_response.r_1
                     constraint.r_2          = narrow_phase_response.r_2
                     constraint.normal       = narrow_phase_response.normal
@@ -385,7 +390,7 @@ class PhysicsWorld():
 
         h = self.dt / self.n_substeps
 
-        self.collect_collision_pairs()
+        self.handle_collisions()
 
         for _ in ti.static(range(self.n_substeps)):   
             self.update_rigid_bodies_position_and_orientation(h)
