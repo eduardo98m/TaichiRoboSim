@@ -1,2 +1,0 @@
-from heightfield import render_heightfield
-from plane import render_plane
