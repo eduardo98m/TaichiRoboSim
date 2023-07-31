@@ -210,8 +210,8 @@ class PhysicsWorld():
                 h : float 
                     The time step (substep)
         """
-        for i in range(self.rigid_bodies):
-            obj = self.dynamic_objects[i]
+        for i in ti.static(range(self.rigid_bodies)):
+            obj = self.rigid_bodies[i]
             # Check if the object is static
             if obj.fixed: continue
 
@@ -255,11 +255,11 @@ class PhysicsWorld():
                     The time step (substep)     
         """
 
-        for i in range(self.rigid_bodies):
+        for i in ti.static(range(self.n_bodies)):
+            obj = self.rigid_bodies[i]
             if obj.fixed: continue
 
-            obj          = self.dynamic_objects[i]
-            obj.velocity = (obj.position - obj.previous_position) / ti.static(h)
+            obj.velocity = (obj.position - obj.previous_position) / h
 
             delta_orientation = quaternion.hamilton_product(obj.orientation, 
                                             quaternion.inverse(obj.previous_orientation))
@@ -268,7 +268,7 @@ class PhysicsWorld():
             angular_velocity  = 2.0 * ti.Vector([   delta_orientation[1],
                                                     delta_orientation[2],
                                                     delta_orientation[3]
-                                                ])/  ti.static(h)
+                                                ])/  h
 
             if delta_orientation[0] >=  0.0: 
                 obj.angular_velocity = - angular_velocity
@@ -299,6 +299,7 @@ class PhysicsWorld():
         
         # Create a field to store the collision pairs
         self.collision_pairs_constraints = ti.field(dtype=CollisionPairConstraint, shape=(len(self.potential_collision_pairs_list)))
+        self.broad_phase_collision_check = ti.field(dtype=ti.i32, shape=(len(self.potential_collision_pairs_list)))
 
 
         # Add the collision pairs to the field
@@ -316,12 +317,17 @@ class PhysicsWorld():
                 (body_1.dynamic_friction_coefficient + body_2.dynamic_friction_coefficient)/2
 
     @ti.func
-    def handle_collisions(self):
+    def broad_phase_collision(self):
         """
-            Collect the collision pairs.
+            Performs the broad phase collision detection.
+
+            Collects the possible collision pairs and stores them in the `collision_pairs_constraints` field.
+
+            Taken from : Section 3.5 of:
+                https://matthias-research.github.io/pages/publications/PBDBodies.pdf
         """
         
-        for i in range(self.collision_pairs_constraints.shape[0]):
+        for i in ti.static(range(self.collision_pairs_constraints.shape[0])):
 
             constraint = self.collision_pairs_constraints[i]
 
@@ -333,8 +339,8 @@ class PhysicsWorld():
 
             body_2_collider = self.get_collider_info(body_2.collider_type, body_2.collider_idx)
 
-            aabb_safety_expansion_1 = ti.max(tm.length(body_1.velocity) * self.dt * 2.0, 1.0)
-            aabb_safety_expansion_2 = ti.max(tm.length(body_2.velocity) * self.dt * 2.0, 1.0)
+            aabb_safety_expansion_1 = abs(body_1.velocity) * self.dt * 2.0
+            aabb_safety_expansion_2 = abs(body_2.velocity) * self.dt * 2.0
 
             broad_phase_check = broad_phase_collision_detection(body_1, 
                                                                 body_2, 
@@ -344,19 +350,43 @@ class PhysicsWorld():
                                                                 aabb_safety_expansion_2
             )
 
-            if broad_phase_check:
-                narrow_phase_response = narrow_phase_collision_detection_and_response(body_1,
-                                                                                        body_2,
-                                                                                        body_1_collider,
-                                                                                        body_2_collider
-                                                                                    )
+            self.broad_phase_collision_check[i] = broad_phase_check
 
-                if narrow_phase_response.collision:
-                    constraint.collision    = True
-                    constraint.r_1          = narrow_phase_response.r_1
-                    constraint.r_2          = narrow_phase_response.r_2
-                    constraint.normal       = narrow_phase_response.normal
-                    constraint.penetration  = narrow_phase_response.penetration
+
+    @ti.func
+    def narrow_phase_collision(self):
+        """
+            Collect the collision pairs.
+        """
+        
+        for i in range(self.collision_pairs_constraints.shape[0]):
+            
+            broad_phase_check = self.broad_phase_collision_check[i]
+
+            if not broad_phase_check: continue
+                
+            constraint = self.collision_pairs_constraints[i]
+
+            body_1 = self.bodies_list[constraint.body_1_idx]
+            
+            body_1_collider = self.get_collider_info(body_1.collider_type, body_1.collider_idx)
+
+            body_2 = self.bodies_list[constraint.body_2_idx]
+
+            body_2_collider = self.get_collider_info(body_2.collider_type, body_2.collider_idx)
+            
+            narrow_phase_response = narrow_phase_collision_detection_and_response(body_1,
+                                                                                    body_2,
+                                                                                    body_1_collider,
+                                                                                    body_2_collider
+                                                                                )
+
+            if narrow_phase_response.collision:
+                constraint.collision    = True
+                constraint.r_1          = narrow_phase_response.r_1
+                constraint.r_2          = narrow_phase_response.r_2
+                constraint.normal       = narrow_phase_response.normal
+                constraint.penetration  = narrow_phase_response.penetration
 
 
     @ti.func
@@ -390,9 +420,10 @@ class PhysicsWorld():
 
         h = self.dt / self.n_substeps
 
-        self.handle_collisions()
+        self.broad_phase_collision()
 
-        for _ in ti.static(range(self.n_substeps)):   
+        for _ in ti.static(range(self.n_substeps)): 
+            self.narrow_phase_collision()  
             self.update_rigid_bodies_position_and_orientation(h)
             self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)

@@ -33,8 +33,8 @@ def broad_phase_collision_detection(body_1 : RigidBody,
                                     body_2 : RigidBody,
                                     body_1_collider: Union[BoxCollider, SphereCollider, CylinderCollider, PlaneCollider],
                                     body_2_collider: Union[BoxCollider, SphereCollider, CylinderCollider, PlaneCollider],
-                                    aabb_1_security_factor : ti.types.f32,
-                                    aabb_2_security_factor : ti.types.f32)-> bool:
+                                    aabb_safety_expansion_1 : ti.types.vector(3, float),
+                                    aabb_safety_expansion_2 : ti.types.vector(3, float))-> bool:
     """
         Broad Phase Collision Detection Function.
         This function is used to detect possible collisions between two rigid bodies.
@@ -56,22 +56,35 @@ def broad_phase_collision_detection(body_1 : RigidBody,
     """
     if body_1_collider.collider_type == PLANE:
         body_2_collider.compute_aabb(body_2.position, body_2.orientation)
+        expanded_aabb_2 = ti.Matrix.zero(ti.f32, 2, 3)
+        expanded_aabb_2[0 , : ] = body_2_collider.aabb[0 , : ] - aabb_safety_expansion_2
+        expanded_aabb_2[1 , : ] = body_2_collider.aabb[1 , : ] + aabb_safety_expansion_2
         return aabb_v_plane(
-            body_2_collider.aabb * aabb_2_security_factor,
+            expanded_aabb_2,
             body_1_collider
         )
     elif body_2_collider.collider_type == PLANE:
         body_1_collider.compute_aabb(body_1.position, body_1.orientation)
+        expanded_aabb_1 = ti.Matrix.zero(ti.f32, 2, 3)
+        expanded_aabb_1[0 , : ] = body_1_collider.aabb[0 , : ] - aabb_safety_expansion_1
+        expanded_aabb_1[1 , : ] = body_1_collider.aabb[1 , : ] + aabb_safety_expansion_1
         return aabb_v_plane(
-            body_1_collider.aabb * aabb_1_security_factor,
+            expanded_aabb_1,
             body_2_collider
         )
     else:
         body_1_collider.compute_aabb(body_1.position, body_1.orientation)
         body_2_collider.compute_aabb(body_2.position, body_2.orientation)
+        body_1_collider.compute_aabb(body_1.position, body_1.orientation)
+        expanded_aabb_1 = ti.Matrix.zero(ti.f32, 2, 3)
+        expanded_aabb_1[0 , : ] = body_1_collider.aabb[0 , : ] - aabb_safety_expansion_1
+        expanded_aabb_1[1 , : ] = body_1_collider.aabb[1 , : ] + aabb_safety_expansion_1
+        expanded_aabb_2 = ti.Matrix.zero(ti.f32, 2, 3)
+        expanded_aabb_2[0 , : ] = body_2_collider.aabb[0 , : ] - aabb_safety_expansion_2
+        expanded_aabb_2[1 , : ] = body_2_collider.aabb[1 , : ] + aabb_safety_expansion_2
         return aabb_v_aabb(
-            body_1_collider.aabb * aabb_1_security_factor,
-            body_2_collider.aabb * aabb_2_security_factor
+            expanded_aabb_1,
+            expanded_aabb_2
         )
 @ti.func
 def flip_response(collision_response : CollisionResponse):
