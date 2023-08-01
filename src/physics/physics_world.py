@@ -130,7 +130,7 @@ class PhysicsWorld():
 
         return self.n_bodies - 1
 
-    @ti.func
+    @ti.kernel
     def update_rigid_bodies_position_and_orientation(
             self,
             h: ti.types.f32 
@@ -180,7 +180,7 @@ class PhysicsWorld():
                     obj.orientation + 0.5 * h * w_4 * obj.orientation
                 )
 
-    @ti.func
+    @ti.kernel
     def update_rigid_bodies_velocities(
         self,
         h : ti.types.f32
@@ -259,7 +259,7 @@ class PhysicsWorld():
             self.collision_pairs_constraints[i].dynamic_friction_coeff= \
                 (body_1.material.dynamic_friction_coeff+ body_2.material.static_friction_coeff)/2
 
-    @ti.func
+    @ti.kernel
     def broad_phase_collision(self):
         """
             Performs the broad phase collision detection.
@@ -298,7 +298,7 @@ class PhysicsWorld():
             self.broad_phase_collision_check[i] = broad_phase_check
 
 
-    @ti.func
+    @ti.kernel
     def narrow_phase_collision(self):
         """
             Collect the collision pairs.
@@ -335,7 +335,7 @@ class PhysicsWorld():
 
 
  
-    @ti.kernel
+    
     def step(self):
 
         h = self.dt / self.n_substeps

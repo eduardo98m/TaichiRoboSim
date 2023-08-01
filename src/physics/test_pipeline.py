@@ -7,7 +7,7 @@ from bodies import RigidBody, Material
 def main():
     # Initiaize taichi
     ti.init(ti.cpu)
-    ti.core.toggle_advanced_optimization(False) 
+    
 
     world = PhysicsWorld(0.01, 20, use_visualizer = False, visualizer_port = "4343")
 
