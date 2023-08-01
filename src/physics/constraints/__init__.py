@@ -1,7 +1,9 @@
 
-import hinge_joint_constraint
-import base_constraints
-import constraint_types
+from . import hinge_joint_constraint
+from . import base_constraints
+from . import constraint_types
+
+from .collision_pair_constraint import CollisionPairConstraint
 
 
 

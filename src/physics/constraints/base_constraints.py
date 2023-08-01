@@ -1,9 +1,14 @@
+"""
+    Author: Eduardo I. Lopez H.
+    Date: 31/07/2023
+
+"""
+
 import taichi as ti
 import taichi.math as tm
 from quaternion import quaternion
-
+from bodies import RigidBody
 EPSILON = 1e-50
-
 
 @ti.dataclass
 class Constraint:
@@ -35,9 +40,11 @@ class Constraint:
     magnitude       : ti.types.f32
     constraint_type : ti.types.u8
 
+
 @ti.dataclass
-class PositionalConstraintResponse():
-    force               : ti.types.vector(3, ti.types.f32) 
+class ConstraintResponse:
+    force               : ti.types.vector(3, ti.types.f32)
+    torque              : ti.types.vector(3, ti.types.f32)  
     new_lagrange_mult   : ti.types.f32
     new_position_1      : ti.types.vector(3, ti.types.f32)
     new_orientation_1   : ti.types.vector(4, ti.types.f32)
@@ -46,11 +53,12 @@ class PositionalConstraintResponse():
 
 
 
+
 @ti.func
 def positional_constraint_lagrange_multiplier_update(
     c             : ti.types.f32,
-    w1            : ti.types.f32,
-    w2            : ti.types.f32,
+    w_1           : ti.types.f32,
+    w_2           : ti.types.f32,
     lagrange_mult : ti.types.f32,
     h             : ti.types.f32,
     alpha         : ti.types.f32
@@ -59,11 +67,11 @@ def positional_constraint_lagrange_multiplier_update(
     """
         Arguments:
         ----------
-        c : ti.types.f32
+        `c` : ti.types.f32
             -> Constraint value
-        w1 : ti.types.f32
+        w_1 : ti.types.f32
             -> Generalized inverse mass of object 1
-        w2 : ti.types.f32
+        w_2 : ti.types.f32
             -> Generalized inverse mass of object 2
         lambda_ : ti.types.f32
             -> Lagrange multiplier
@@ -73,7 +81,7 @@ def positional_constraint_lagrange_multiplier_update(
             -> Contraint compliance 
     """
     alpha_p = alpha / h**2
-    return  -c - alpha_p * lagrange_mult / (w1 + w2 + alpha_p)
+    return  -c - alpha_p * lagrange_mult / (w_1 + w_2 + alpha_p)
 
 
 
@@ -101,23 +109,24 @@ def positional_contraint_generalized_inverse_mass(
 
 @ti.func
 def compute_positional_constraint(
-    obj_1 : ti.template(),
-    r1_lc    : ti.types.vector(3, ti.types.f32),
-    obj_2 : ti.template(),
-    r2_lc    : ti.types.vector(3, ti.types.f32),
-    h     : ti.types.f32 ,
+    obj_1     : RigidBody,
+    r1_lc     : ti.types.vector(3, ti.types.f32),
+    obj_2     : RigidBody,
+    r2_lc     : ti.types.vector(3, ti.types.f32),
+    h         : ti.types.f32 ,
     direction : ti.types.vector(3, ti.types.f32),
     magnitude : ti.types.f32,
     lagrange_mult : ti.types.f32,
-) -> PositionalConstraintResponse:
+    compliance : ti.types.f32
+) -> ConstraintResponse:
     """
         Arguments:
         ----------
-        obj_1 : ti.template()
+        obj_1 : RigidBody
             -> Object 1
         r1 : ti.types.vector(3, ti.types.f32)
             -> Vector relative to the center of mass of object 1, where the constraint is applied.
-        obj_2 : ti.template()
+        obj_2 : RigidBody
             -> Object 2  
         r2 : ti.types.vector(3, ti.types.f32)
             -> Vector relative to the center of mass of object 2, where the constraint is applied.
@@ -128,7 +137,9 @@ def compute_positional_constraint(
         magnitude : ti.types.f32
             -> Magnitude of the constraint
         lagrange_mult : ti.types.f32
-            -> Lagrange multiplier of the constraint         
+            -> Lagrange multiplier of the constraint   
+        compliance : ti.types.f32
+            -> Constraint compliance (refered as alpha in the paper of Dr. Muller)      
     """
     n = direction
     c = magnitude
@@ -138,11 +149,11 @@ def compute_positional_constraint(
         r2 = quaternion.rotate_vector(obj_2.orientation, r2_lc)
 
         # Calculate the generalized inverse mass
-        w1 = positional_contraint_generalized_inverse_mass(obj_1.mass, obj_1.dynamic_inv_interia, r1, n)
-        w2 = positional_contraint_generalized_inverse_mass(obj_2.mass, obj_2.dynamic_inv_interia, r2, n)
+        w_1 = positional_contraint_generalized_inverse_mass(obj_1.mass, obj_1.dynamic_inv_interia, r1, n)
+        w_2 = positional_contraint_generalized_inverse_mass(obj_2.mass, obj_2.dynamic_inv_interia, r2, n)
 
         # Calculate the Lagrange multiplier update
-        new_lagrange_mult = lagrange_mult + positional_constraint_lagrange_multiplier_update(c, w1, w2, lagrange_mult, h, obj_1.alpha)
+        new_lagrange_mult = lagrange_mult + positional_constraint_lagrange_multiplier_update(c, w_1, w_2, lagrange_mult, h, compliance)
     
     else:
         
@@ -152,7 +163,7 @@ def compute_positional_constraint(
 
     # Compute the position and orientation 
     if not obj_1.fixed:
-        new_position_1   = obj_1.position + impulse * w1
+        new_position_1   = obj_1.position + impulse * w_1
         new_orietation_1 = tm.normalize(obj_1.orientation + quaternion.rotate_vector(obj_1.orientation, 
                                                   0.5* obj_1.dynamic_inv_interia @ tm.cross(r1, impulse))) 
     else:
@@ -160,7 +171,7 @@ def compute_positional_constraint(
         new_orietation_1 = obj_1.orientation
     
     if not obj_2.fixed:
-        new_position_2   = obj_2.position - impulse * w2
+        new_position_2   = obj_2.position - impulse * w_2
         new_orietation_2 = tm.normalize(obj_2.orientation - quaternion.rotate_vector(obj_2.orientation,
                                                         0.5* obj_2.dynamic_inv_interia @ tm.cross(r2, impulse)))
     else:
@@ -169,29 +180,22 @@ def compute_positional_constraint(
     
     force = impulse / h**2
 
-    return PositionalConstraintResponse(
+    return ConstraintResponse(
         force               = force,
         new_lagrange_mult   = new_lagrange_mult,
         new_position_1      = new_position_1,
         new_orientation_1   = new_orietation_1,
         new_position_2      = new_position_2,
         new_orientation_2   = new_orietation_2  
-
     )
 
-@ti.dataclass
-class AngularConstraintResponse():
-    torque              : ti.types.vector(3, ti.types.f32) 
-    new_lagrange_mult   : ti.types.f32
-    new_orientation_1   : ti.types.vector(4, ti.types.f32)
-    new_orientation_2   : ti.types.vector(4, ti.types.f32)
 
 
 @ti.func
 def angular_constraint_lagrange_multiplier_update(
     c             : ti.types.f32,
-    w1            : ti.types.f32,
-    w2            : ti.types.f32,
+    w_1           : ti.types.f32,
+    w_2           : ti.types.f32,
     lagrange_mult : ti.types.f32,
     h             : ti.types.f32,
     alpha         : ti.types.f32
@@ -200,21 +204,21 @@ def angular_constraint_lagrange_multiplier_update(
     """
         Arguments:
         ----------
-        c : ti.types.f32
+        `c`   : ti.types.f32
             -> Constraint value
-        w1 : ti.types.f32
+        `w_1` : ti.types.f32
             -> Generalized inverse mass of object 1
-        w2 : ti.types.f32
+        `w_2` : ti.types.f32
             -> Generalized inverse mass of object 2
-        lambda_ : ti.types.f32
+        `lagrange_mult` : ti.types.f32
             -> Lagrange multiplier
-        h : ti.types.f32
+        `h`   : ti.types.f32
             -> Time step
-        alpha: ti.types.f32
+        `alpha`: ti.types.f32
             -> Contraint compliance 
     """
     alpha_p = alpha / h**2
-    return  -c - alpha_p * lagrange_mult / (w1 + w2 + alpha_p)
+    return  -c - alpha_p * lagrange_mult / (w_1 + w_2 + alpha_p)
 
 
 @ti.func
@@ -234,20 +238,20 @@ def angular_contraint_generalized_inverse_mass(
 
 @ti.func
 def compute_angular_constraint(
-    obj_1         : ti.template(),
-    obj_2         : ti.template(),
+    obj_1         : RigidBody,
+    obj_2         : RigidBody,
     h             : ti.types.f32 ,
     direction     : ti.types.vector(3, ti.types.f32),
     magnitude     : ti.types.f32,
     lagrange_mult : ti.types.f32,
-) -> AngularConstraintResponse:
+) -> ConstraintResponse:
     """
     
         Arguments:
         ----------
-        obj_1 : ti.template()
+        obj_1 : RigidBody
             -> Object 1
-        obj_2 : ti.template()
+        obj_2 : RigidBody
             -> Object 2
         h : ti.types.f32
             -> Time step (Substep)
@@ -264,11 +268,11 @@ def compute_angular_constraint(
 
     if theta <= EPSILON:
         # Calculate the generalized inverse mass
-        w1 = angular_contraint_generalized_inverse_mass(obj_1.dynamic_inv_interia, n)
-        w2 = angular_contraint_generalized_inverse_mass(obj_2.dynamic_inv_interia, n)
+        w_1 = angular_contraint_generalized_inverse_mass(obj_1.dynamic_inv_interia, n)
+        w_2 = angular_contraint_generalized_inverse_mass(obj_2.dynamic_inv_interia, n)
 
         # Calculate the Lagrange multiplier update
-        new_lagrange_mult = lagrange_mult + angular_constraint_lagrange_multiplier_update(theta, w1, w2, lagrange_mult, h, obj_1.alpha)
+        new_lagrange_mult = lagrange_mult + angular_constraint_lagrange_multiplier_update(theta, w_1, w_2, lagrange_mult, h, obj_1.alpha)
     
     else:
         new_lagrange_mult = lagrange_mult
@@ -289,7 +293,7 @@ def compute_angular_constraint(
 
     torque = impulse/ h**2
 
-    return AngularConstraintResponse(
+    return ConstraintResponse(
         torque              = torque,
         new_lagrange_mult   = new_lagrange_mult,
         new_orientation_1   = new_orientation_1,

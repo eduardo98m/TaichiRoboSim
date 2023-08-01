@@ -2,6 +2,8 @@ import taichi as ti
 import taichi.math as tm
 from quaternion import quaternion
 
+from .material import Material
+
 @ti.dataclass
 class RigidBody:
     """
@@ -9,20 +11,22 @@ class RigidBody:
     
     Arguments:
     ----------
-    mass : ti.types.f32
+    * mass : ti.types.f32
         Mass of the object
-    inertia : ti.types.matrix(3,3, float)
+    * inertia : ti.types.matrix(3,3, float)
         Inertia tensor of the object
-    position : ti.types.vector(3, float)
+    * position : ti.types.vector(3, float)
         Position of the object in the world
-    velocity : ti.types.vector(3, float)
+    * velocity : ti.types.vector(3, float)
         Velocity of the object
-    orientation : ti.types.vector(4, float)
+    * orientation : ti.types.vector(4, float)
         Orientation of the object in the world as a quaternion
-    angular_velocity : ti.types.vector(3, float)
+    * angular_velocity : ti.types.vector(3, float)
         Angular velocity of the object
-    collider_idx: Collider
+    * collider_idx: Collider
         Index of the collider that is attached to the object
+    * `material` : Material
+        -> Struc that stores the material properties of the object
     """
     mass                : ti.types.f32
     inertia             : ti.types.matrix(3,3, float) 
@@ -38,8 +42,14 @@ class RigidBody:
     dynamic_inv_interia : ti.types.matrix(3,3, float)
     fixed               : bool
     collider_type       : ti.types.u8 
-    collider_idx        : ti.types.u32 
-    collision_group     : ti.types.u32
+    collider_idx        : ti.types.i32 
+    collision_group     : ti.types.i32
+    material            : Material
+
+    def init(self):
+        self.prev_position = self.position
+        self.prev_orientation = self.orientation
+
     
     @ti.func
     def compute_inv_inertia(self):

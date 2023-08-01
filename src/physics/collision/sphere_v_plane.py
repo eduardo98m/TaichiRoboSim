@@ -1,8 +1,8 @@
 import taichi as ti
 import taichi.math as tm
-from colliders import SphereCollider, PlaneCollider
-from quaternion import quaternion
-from collision import CollisionResponse
+
+from .colliders import SphereCollider, PlaneCollider
+from .collision import CollisionResponse
 
 
 @ti.func

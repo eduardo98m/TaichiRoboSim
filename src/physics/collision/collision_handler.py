@@ -7,32 +7,34 @@
 
 import taichi as ti
 import taichi.math as tm
-from colliders import BoxCollider, SphereCollider, CylinderCollider, PlaneCollider
-from collision import CollisionResponse
 from typing import List, Union
+
 from src.physics.bodies import RigidBody
-from aabb_v_aabb import aabb_v_aabb
-from aabb_v_plane import aabb_v_plane
-from colliders import BOX, CYLINDER, SPHERE ,PLANE
+from .aabb_v_aabb import aabb_v_aabb
+from .aabb_v_plane import aabb_v_plane
+from .colliders import BoxCollider, SphereCollider, CylinderCollider, PlaneCollider
+from .colliders import BOX, CYLINDER, SPHERE ,PLANE
+from .collision import CollisionResponse
 
-from box_v_box import box_v_box
-from sphere_v_sphere import sphere_v_sphere
-from cylinder_v_cylinder import cylinder_v_cylinder
 
-from sphere_v_cylinder import sphere_v_cylinder
-from sphere_v_box import sphere_v_box
-from box_v_cylinder import box_v_cylinder
+from .box_v_box import box_v_box
+from .sphere_v_sphere import sphere_v_sphere
+from .cylinder_v_cylinder import cylinder_v_cylinder
 
-from box_v_plane import box_v_plane
-from sphere_v_plane import sphere_v_plane
-from cylinder_v_plane import cylinder_v_plane
+from .sphere_v_cylinder import sphere_v_cylinder
+from .sphere_v_box import sphere_v_box
+from .box_v_cylinder import box_v_cylinder
+
+from .box_v_plane import box_v_plane
+from .sphere_v_plane import sphere_v_plane
+from .cylinder_v_plane import cylinder_v_plane
 
 
 @ti.func
 def broad_phase_collision_detection(body_1 : RigidBody,
                                     body_2 : RigidBody,
-                                    body_1_collider: Union[BoxCollider, SphereCollider, CylinderCollider, PlaneCollider],
-                                    body_2_collider: Union[BoxCollider, SphereCollider, CylinderCollider, PlaneCollider],
+                                    body_1_collider: ti.template(),
+                                    body_2_collider: ti.template(),
                                     aabb_safety_expansion_1 : ti.types.vector(3, float),
                                     aabb_safety_expansion_2 : ti.types.vector(3, float))-> bool:
     """
@@ -54,21 +56,23 @@ def broad_phase_collision_detection(body_1 : RigidBody,
         `aabb_2_security_factor` : ti.types.f32
             -> Security factor of the second rigid body.
     """
-    if body_1_collider.collider_type == PLANE:
+    collision  = False
+
+    if body_1_collider.type == PLANE:
         body_2_collider.compute_aabb(body_2.position, body_2.orientation)
         expanded_aabb_2 = ti.Matrix.zero(ti.f32, 2, 3)
         expanded_aabb_2[0 , : ] = body_2_collider.aabb[0 , : ] - aabb_safety_expansion_2
         expanded_aabb_2[1 , : ] = body_2_collider.aabb[1 , : ] + aabb_safety_expansion_2
-        return aabb_v_plane(
+        collision =  aabb_v_plane(
             expanded_aabb_2,
             body_1_collider
         )
-    elif body_2_collider.collider_type == PLANE:
+    elif body_2_collider.type  == PLANE:
         body_1_collider.compute_aabb(body_1.position, body_1.orientation)
         expanded_aabb_1 = ti.Matrix.zero(ti.f32, 2, 3)
         expanded_aabb_1[0 , : ] = body_1_collider.aabb[0 , : ] - aabb_safety_expansion_1
         expanded_aabb_1[1 , : ] = body_1_collider.aabb[1 , : ] + aabb_safety_expansion_1
-        return aabb_v_plane(
+        collision =  aabb_v_plane(
             expanded_aabb_1,
             body_2_collider
         )
@@ -82,10 +86,12 @@ def broad_phase_collision_detection(body_1 : RigidBody,
         expanded_aabb_2 = ti.Matrix.zero(ti.f32, 2, 3)
         expanded_aabb_2[0 , : ] = body_2_collider.aabb[0 , : ] - aabb_safety_expansion_2
         expanded_aabb_2[1 , : ] = body_2_collider.aabb[1 , : ] + aabb_safety_expansion_2
-        return aabb_v_aabb(
+        collision =  aabb_v_aabb(
             expanded_aabb_1,
             expanded_aabb_2
         )
+    
+    return collision
 @ti.func
 def flip_response(collision_response : CollisionResponse):
     """
@@ -102,14 +108,16 @@ def flip_response(collision_response : CollisionResponse):
 @ti.func
 def narrow_phase_collision_detection_and_response(body_1 : RigidBody, 
                                                   body_2 : RigidBody, 
-                                                  body_1_collider : Union[BoxCollider, SphereCollider, CylinderCollider, PlaneCollider], 
-                                                  body_2_collider : Union[BoxCollider, SphereCollider, CylinderCollider, PlaneCollider]
+                                                  body_1_collider : ti.template(), 
+                                                  body_2_collider : ti.template()
                                                   )-> CollisionResponse:
     """
         Narrow Phase Collision Detection and Response Function.
     """
+    response = CollisionResponse(False, ti.Vector([0.0, 0.0, 0.0]), 0.0, 0.0, 0.0)
+
     if body_1_collider.type == SPHERE and body_2_collider.type == SPHERE:
-        return sphere_v_sphere(
+        response = sphere_v_sphere(
             body_1_collider,
             body_2_collider,
             body_1.position,
@@ -118,7 +126,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             body_2.orientation
         )
     elif body_1_collider.type == BOX and body_2_collider.type == BOX:
-        return box_v_box(
+        response = box_v_box(
             body_1_collider,
             body_2_collider,
             body_1.position,
@@ -127,7 +135,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             body_2.orientation
         )
     elif body_1_collider.type == CYLINDER and body_2_collider.type == CYLINDER:
-        return cylinder_v_cylinder(
+        response = cylinder_v_cylinder(
             body_1_collider,
             body_2_collider,
             body_1.position,
@@ -136,7 +144,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             body_2.orientation
         )
     elif body_1_collider.type == SPHERE and body_2_collider.type == BOX:
-        return sphere_v_box(
+        response = sphere_v_box(
             body_1_collider,
             body_2_collider,
             body_1.position,
@@ -145,7 +153,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             body_2.orientation
         )
     elif body_1_collider.type == BOX and body_2_collider.type == SPHERE:
-        return flip_response(
+        response = flip_response(
                 sphere_v_box(
                 body_2_collider,
                 body_1_collider,
@@ -156,7 +164,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             )
         )
     elif body_1_collider.type == SPHERE and body_2_collider.type == CYLINDER:
-        return sphere_v_cylinder(
+        response = sphere_v_cylinder(
             body_1_collider,
             body_2_collider,
             body_1.position,
@@ -165,7 +173,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             body_2.orientation
         )
     elif body_1_collider.type == CYLINDER and body_2_collider.type == SPHERE:
-        return flip_response(
+        response = flip_response(
                 sphere_v_cylinder(
                 body_2_collider,
                 body_1_collider,
@@ -176,7 +184,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             )
         )
     elif body_1_collider.type == BOX and body_2_collider.type == CYLINDER:
-        return box_v_cylinder(
+        response = box_v_cylinder(
             body_1_collider,
             body_2_collider,
             body_1.position,
@@ -185,7 +193,7 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             body_2.orientation
         )
     elif body_1_collider.type == CYLINDER and body_2_collider.type == BOX:
-        return flip_response(
+        response = flip_response(
                 box_v_cylinder(
                 body_2_collider,
                 body_1_collider,
@@ -196,14 +204,14 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             )
         )   
     elif body_1_collider.type == BOX and body_2_collider.type == PLANE:
-        return box_v_plane(
+        response = box_v_plane(
             body_1_collider,
             body_2_collider,
             body_1.position,
             body_1.orientation
         )
     elif body_1_collider.type == PLANE and body_2_collider.type == BOX:
-        return flip_response(
+        response = flip_response(
                 box_v_plane(
                 body_2_collider,
                 body_1_collider,
@@ -212,13 +220,13 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             )
         )
     elif body_1_collider.type == SPHERE and body_2_collider.type == PLANE:
-        return sphere_v_plane(
+        response = sphere_v_plane(
             body_1_collider,
             body_2_collider,
             body_1.position
         )
     elif body_1_collider.type == PLANE and body_2_collider.type == SPHERE:
-        return flip_response(
+        response = flip_response(
                 sphere_v_plane(
                 body_2_collider,
                 body_1_collider,
@@ -226,14 +234,14 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
             )
         ) 
     elif body_1_collider.type == CYLINDER and body_2_collider.type == PLANE:
-        return cylinder_v_plane(
+        response = cylinder_v_plane(
             body_1_collider,
             body_2_collider,
             body_1.position,
             body_2.orientation
         )
     elif body_1_collider.type == PLANE and body_2_collider.type == CYLINDER:
-        return flip_response(
+        response = flip_response(
                 cylinder_v_plane(
                 body_2_collider,
                 body_1_collider,
@@ -241,9 +249,8 @@ def narrow_phase_collision_detection_and_response(body_1 : RigidBody,
                 body_2.orientation
             )
         )
-    else : 
-        # The collision response is not handled.
-        return CollisionResponse(False, ti.Vector([0.0, 0.0, 0.0]), 0.0, 0.0, 0.0)
+    
+    return response
 
     
 

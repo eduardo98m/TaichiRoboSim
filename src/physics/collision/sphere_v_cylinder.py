@@ -1,9 +1,12 @@
-from colliders import CylinderCollider, SphereCollider
+
 import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
-from physics.collision.collision_utils import  get_projections_overlap, project_cylinder
+
+from quaternion import quaternion
+
+from .collision import CollisionResponse
+from .colliders import CylinderCollider, SphereCollider
+from .collision_utils import  get_projections_overlap, project_cylinder
 
 
 

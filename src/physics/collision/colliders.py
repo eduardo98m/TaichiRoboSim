@@ -21,10 +21,13 @@ class BoxCollider:
     aabb         : ti.types.matrix(2,3, float)
     type         : ti.types.u8 = BOX
 
+    def init(self):
+        self.type  : ti.types.u8 = BOX
+
     @ti.func
     def compute_aabb(self, position, orientation):
-        self.aabb[0] = position - quaternion.rotate_vector(orientation, self.half_extents)
-        self.aabb[1] = position + quaternion.rotate_vector(orientation, self.half_extents)
+        self.aabb[0, :] = position - quaternion.rotate_vector(orientation, self.half_extents)
+        self.aabb[1, :] = position + quaternion.rotate_vector(orientation, self.half_extents)
 
 @ti.dataclass
 class SphereCollider:
@@ -40,10 +43,14 @@ class SphereCollider:
     aabb  : ti.types.matrix(2,3, float)
     type  : ti.types.u8 = SPHERE
 
+    def init(self):
+        self.type  : ti.types.u8 = SPHERE
+
+
     @ti.func
     def compute_aabb(self, position, orientation):
-        self.aabb[0] = position - self.radius
-        self.aabb[1] = position + self.radius
+        self.aabb[0, :] = position - self.radius
+        self.aabb[1, :] = position + self.radius
 
 @ti.dataclass
 class CylinderCollider:
@@ -64,11 +71,14 @@ class CylinderCollider:
     aabb  : ti.types.matrix(2,3, float)
     type  : ti.types.u8 = CYLINDER
 
+    def init(self):
+        self.type  : ti.types.u8 = CYLINDER
+
     @ti.func
     def compute_aabb(self, position, orientation):
         abb_vector = quaternion.rotate_vector(orientation, ti.Vector([self.radius, self.radius, self.height / 2])) 
-        self.aabb[0] = position - abb_vector
-        self.aabb[1] = position + abb_vector
+        self.aabb[0, :] = position - abb_vector
+        self.aabb[1, :] = position + abb_vector
 
 @ti.dataclass
 class PlaneCollider:
@@ -86,14 +96,12 @@ class PlaneCollider:
 
     normal: ti.types.vector(3, float)
     offset: ti.types.f32
-    aabb  : ti.types.matrix(2,3, float)
     type  : ti.types.u8 = PLANE
-    length: ti.types.f32 = 1000
+    
+    def init(self):
+        self.type  : ti.types.u8 = PLANE
 
-    @ti.func
-    def compute_aabb(self):
-        self.aabb[0] = ti.Vector([-self.length, -self.length, -self.length])
-        self.aabb[1] = ti.Vector([ self.length,  self.length,  self.length])
+
 
 @ti.dataclass
 class HeightFieldCollider:
@@ -113,10 +121,13 @@ class HeightFieldCollider:
     aabb             : ti.types.matrix(2,3, float)
     type             : ti.types.u8 = HEIGHTFIELD
 
+    def init(self):
+        self.type  : ti.types.u8 = HEIGHTFIELD
+
     @ti.func
     def compute_aabb(self, position, orientation, height_field_data, x_coordinates, y_coordinates):
-        self.aabb[0] = position - quaternion.rotate_vector(orientation, ti.Vector([x_coordinates[0],  y_coordinates[0], height_field_data[0,0]]))
-        self.aabb[1] = position + quaternion.rotate_vector(orientation, ti.Vector([x_coordinates[-1], y_coordinates[-1], height_field_data[-1,-1]]))
+        self.aabb[0, :] = position - quaternion.rotate_vector(orientation, ti.Vector([x_coordinates[0],  y_coordinates[0], height_field_data[0,0]]))
+        self.aabb[1, :] = position + quaternion.rotate_vector(orientation, ti.Vector([x_coordinates[-1], y_coordinates[-1], height_field_data[-1,-1]]))
     
 
 

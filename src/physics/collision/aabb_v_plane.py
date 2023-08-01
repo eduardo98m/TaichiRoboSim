@@ -1,7 +1,5 @@
-from colliders import PlaneCollider
+from .colliders import PlaneCollider
 import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
 
 

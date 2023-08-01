@@ -1,9 +1,11 @@
-from colliders import BoxCollider, CylinderCollider
 import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
-from collision_utils import get_box_vertices, \
+
+from quaternion import quaternion
+
+from .collision import CollisionResponse
+from .colliders import BoxCollider, CylinderCollider
+from .collision_utils import get_box_vertices, \
                                 get_vertices_projection_max_and_min, \
                                 get_projections_overlap,\
                                 project_cylinder
@@ -49,7 +51,7 @@ def box_v_cylinder(
     # Add the cylinder's axis as an additional axis
     cylinder_axis = quaternion.rotate_vector(cylinder_orientation, ti.Vector([0.0, 0.0, 1.0]))
     
-    axes = ti.Matrix([ [0.0, 0.0, 0.0] ] * 7 ) 
+    axes = ti.Matrix.zero(7, 3, ti.f32)
     # TODO: We may need to add an additional 8th axis: (the vector from the box's center to the cylinder's center)
     axes[0:3, :] = box_face_normals
     axes[3,   :] = cylinder_axis
@@ -58,7 +60,7 @@ def box_v_cylinder(
     
     # Add the cross products of the box's face normals and the cylinder's axis as additional axes
     for i in range(3):
-        axes[3 + i,   :] = tm.cross(box_face_normals[i], cylinder_axis)
+        axes[4 + i,   :] = tm.cross(box_face_normals[i], cylinder_axis)
     
     # Test each axis
     minOverlap = float('inf')

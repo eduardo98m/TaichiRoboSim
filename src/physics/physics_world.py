@@ -1,55 +1,21 @@
 import taichi as ti
 import taichi.math as tm
-#from colliders import Collider, SphereCollider
 from time import time, sleep
 from quaternion import quaternion
+from typing import Union
 
 import meshcat
 import meshcat.geometry as g
 import meshcat.transformations as tf
-from renderer import render_heightfield, render_plane
+from src.renderer import render_heightfield, render_plane
 
-from collision import colliders
-from collision import BoxCollider, SphereCollider, CylinderCollider, HeightFieldCollider, PlaneCollider
+import src.physics.collision as collision
+from src.physics.collision import BoxCollider, SphereCollider, CylinderCollider, HeightFieldCollider, PlaneCollider
 
-from constraints import hinge_joint_constraint, constraint_types
+from constraints import hinge_joint_constraint, constraint_types, CollisionPairConstraint
 
 from bodies.rigid_body import RigidBody
 from collision import broad_phase_collision_detection, narrow_phase_collision_detection_and_response
-
-@ti.dataclass
-class Material():
-    """
-        Class that stores the material properties of a body
-    """
-    static_friction_coeff  : ti.types.f32
-    dynamic_friction_coeff : ti.types.f32
-
-
-@ti.dataclass
-class CollisionPairConstraint():
-    """
-        Class that stores the indices of the two objects that are colliding
-    """
-    body_1_idx     : ti.types.u32
-    body_2_idx     : ti.types.u32
-    
-    collision      : bool
-    
-    lambda_normal  : ti.types.f32
-    lambda_tangent : ti.types.f32
-    
-    static_friction_coeff  : ti.types.f32
-    dynamic_friction_coeff : ti.types.f32
-
-    contact_normal         : ti.types.vector(3, float)
-    penetration_depth      : ti.types.f32
-
-    r_1 : ti.types.vector(3, float)
-    r_2 : ti.types.vector(3, float)
-
-    fricction_force : ti.types.vector(3, float)
-    normal_force    : ti.types.vector(3, float)
 
 
 
@@ -62,7 +28,7 @@ class PhysicsWorld():
                  use_visualizer = True,
                  visualizer_port = "4343") -> None:
         
-        self.gravity_vector   = ti.Vector([0.0, -9.8, 0.0])
+        self.gravity_vector   = ti.Vector([0.0, 0.0, -9.8])
         
         self.bodies_list                     = []
         
@@ -93,6 +59,7 @@ class PhysicsWorld():
             print("Visualizer running on URL: ", zmq_url)
             self.visualizer = meshcat.Visualizer(zmq_url=zmq_url)
             self.visualizer.open()
+            print("Visualizer opened")
     
 
     def set_up_simulation(self):
@@ -106,35 +73,45 @@ class PhysicsWorld():
             self.rigid_bodies[i] = self.bodies_list[i] 
         
         n_cyllinder_colliders = len(self.cyllinder_colliders_list)
-        self.cyllinder_colliders        = CylinderCollider.field(shape=(n_cyllinder_colliders,))
-        for i in range(n_cyllinder_colliders):
-            self.cyllinder_colliders[i] = self.cyllinder_colliders_list[i]
+        if n_cyllinder_colliders > 0:
+            self.cyllinder_colliders = CylinderCollider.field(shape=(n_cyllinder_colliders,))
+            for i in range(n_cyllinder_colliders):
+                self.cyllinder_colliders[i] = self.cyllinder_colliders_list[i]
+        else: self.cyllinder_colliders = BoxCollider.field(shape=(1,))
         
-        n_sphere_colliders = len(self.sphere_colliders_list)
-        self.sphere_colliders           = SphereCollider.field(shape=(n_sphere_colliders,))
-        for i in range(n_sphere_colliders):
-            self.sphere_colliders[i] = self.sphere_colliders_list[i]
+        n_sphere_colliders    = len(self.sphere_colliders_list)
+        if n_sphere_colliders > 0:
+            self.sphere_colliders = SphereCollider.field(shape=(n_sphere_colliders,))
+            for i in range(n_sphere_colliders):
+                self.sphere_colliders[i] = self.sphere_colliders_list[i]
+        else: self.sphere_colliders = BoxCollider.field(shape=(1,))
         
-        n_box_colliders = len(self.box_colliders_list)
-        self.box_colliders              = BoxCollider.field(shape=(n_box_colliders,))
-        for i in range(n_box_colliders):
-            self.box_colliders[i] = self.box_colliders_list[i]
+        n_box_colliders    = len(self.box_colliders_list)
+        if n_box_colliders > 0:
+            self.box_colliders = BoxCollider.field(shape=(n_box_colliders,))
+            for i in range(n_box_colliders):
+                self.box_colliders[i] = self.box_colliders_list[i]
+        else: self.box_colliders = BoxCollider.field(shape=(1,))
 
-        n_plane_colliders = len(self.plane_colliders_list)
-        self.plane_colliders            = PlaneCollider.field(shape=(n_plane_colliders,))
-        for i in range(n_plane_colliders):
-            self.plane_colliders[i] = self.plane_colliders_list[i]
+        n_plane_colliders    = len(self.plane_colliders_list)
+        if n_plane_colliders > 0:
+            self.plane_colliders = PlaneCollider.field(shape=(n_plane_colliders,))
+            for i in range(n_plane_colliders):
+                self.plane_colliders[i] = self.plane_colliders_list[i]
+        else: self.plane_colliders = BoxCollider.field(shape=(1,))
 
-        n_heightfield_colliders = len(self.heightfield_colliders_list)
-        self.heightfield_colliders      = HeightFieldCollider.field(shape=(n_heightfield_colliders,))
-        for i in range(n_heightfield_colliders):
-            self.heightfield_colliders[i] = self.heightfield_colliders_list[i]
+        n_heightfield_colliders    = len(self.heightfield_colliders_list)
+        if n_heightfield_colliders > 0:
+            self.heightfield_colliders = HeightFieldCollider.field(shape=(n_heightfield_colliders,))
+            for i in range(n_heightfield_colliders):
+                self.heightfield_colliders[i] = self.heightfield_colliders_list[i]
+        else: self.heightfield_colliders = BoxCollider.field(shape=(1,))
  
-        self.precompute_collision_checks()
+        self.precompute_potential_collison_pairs()
 
     
     def add_height_field(self, 
-                         height_field : HeightFieldCollider,
+                         height_field  : HeightFieldCollider,
                          x_coordinates,
                          y_coordinates,
                          heightfield_data):
@@ -169,22 +146,40 @@ class PhysicsWorld():
     
     def add_rigid_body(self,
                        body : RigidBody,
-                       collider) -> ti.types.u32:
-        
+                       collider: Union[ SphereCollider,
+                                        BoxCollider,
+                                        CylinderCollider,
+                                        PlaneCollider  ]) -> ti.types.u32:
+        """
+            Adds a rigid body to the simulation.
+            Returns the index of the rigid body in the rigid bodies list.
 
-        if   body.collider_type == colliders.BOX:
+            This function cannot be called after the simulation has started.
+
+            Arguments:
+            ----------
+            * `body` : RigidBody
+                -> The rigid body to be added to the simulation.
+            * `collider` : Union[ SphereCollider, BoxCollider, CylinderCollider, PlaneCollider]
+                -> The collider of the rigid body.
+
+        """
+
+        body.collider_type = collider.type
+        
+        if   body.collider_type == collision.BOX:
             self.box_colliders_list.append(collider)
             body.collider_idx = len(self.box_colliders_list) - 1
-        elif body.collider_type == colliders.SPHERE:
+        elif body.collider_type == collision.SPHERE:
             self.sphere_colliders_list.append(collider)
             body.collider_idx = len(self.sphere_colliders_list) - 1
-        elif body.collider_type == colliders.CYLLINDER:
+        elif body.collider_type == collision.CYLINDER:
             self.cyllinder_colliders_list.append(collider)
             body.collider_idx = len(self.cyllinder_colliders_list) - 1
-        elif body.collider_type == colliders.PLANE:
+        elif body.collider_type == collision.PLANE:
             self.plane_colliders_list.append(collider)
             body.collider_idx = len(self.plane_colliders_list) - 1
-        elif body.collider_type == colliders.HEIGHTFIELD:
+        elif body.collider_type == collision.HEIGHTFIELD:
             self.heightfield_colliders_list.append(collider)
             body.collider_idx = len(self.heightfield_colliders_list) - 1
 
@@ -210,32 +205,38 @@ class PhysicsWorld():
                 h : float 
                     The time step (substep)
         """
-        for i in ti.static(range(self.rigid_bodies)):
+        for i in ti.static(range(self.n_bodies)):
             obj = self.rigid_bodies[i]
             # Check if the object is static
-            if obj.fixed: continue
+            if not obj.fixed:
+                # Save the previous position
+                obj.prev_position = obj.position
 
-            # Save the previous position
-            obj.previous_position = obj.position
+                # Update velocity
+                obj.velocity    = obj.velocity + (self.gravity_vector  + obj.external_force/ obj.mass) * h 
+                
+                # Update position
+                obj.position    = obj.position + obj.velocity  * h 
 
-            # Update velocity
-            obj.velocity    = obj.velocity + (self.gravity_vector  + obj.external_force/ obj.mass) * ti.static(h) 
-            
-            # Update position
-            obj.position    = obj.position + obj.velocity  * ti.static(h) 
+                # Save the previous orientation
+                obj.prev_orientation = obj.orientation
 
-            # Save the previous orientation
-            obj.previous_orientation = obj.orientation
+                # Update angular velocity
+                obj.angular_velocity = obj.angular_velocity +  h * obj.inv_inertia @ (
+                    obj.external_torque - tm.cross(obj.angular_velocity, obj.inertia @ obj.angular_velocity)
+                )
 
-            # Update angular velocity
-            obj.angular_velocity = obj.angular_velocity +  ti.static(h) * obj.inv_inertia * (
-                obj.external_torque - tm.cross(obj.angular_velocity, obj.inertia @ obj.angular_velocity)
-            )
+                w_4 = ti.Vector([
+                    0.0,
+                    obj.angular_velocity[0],
+                    obj.angular_velocity[1],
+                    obj.angular_velocity[2]
+                ])
 
-            # Update orientation
-            obj.orientation = tm.normalize(
-                obj.orientation + 0.5 * ti.static(h) * quaternion.rotate_vector(obj.orientation, obj.angular_velocity)
-            )
+                # Update orientation
+                obj.orientation = tm.normalize(
+                    obj.orientation + 0.5 * h * w_4 * obj.orientation
+                )
 
     @ti.func
     def update_rigid_bodies_velocities(
@@ -257,23 +258,22 @@ class PhysicsWorld():
 
         for i in ti.static(range(self.n_bodies)):
             obj = self.rigid_bodies[i]
-            if obj.fixed: continue
+            if not obj.fixed:
+                obj.velocity = (obj.position - obj.prev_position) / h
 
-            obj.velocity = (obj.position - obj.previous_position) / h
+                delta_orientation = quaternion.hamilton_product(obj.orientation, 
+                                                quaternion.inverse(obj.prev_orientation))
+                
 
-            delta_orientation = quaternion.hamilton_product(obj.orientation, 
-                                            quaternion.inverse(obj.previous_orientation))
-            
+                angular_velocity  = 2.0 * ti.Vector([   delta_orientation[1],
+                                                        delta_orientation[2],
+                                                        delta_orientation[3]
+                                                    ])/  h
 
-            angular_velocity  = 2.0 * ti.Vector([   delta_orientation[1],
-                                                    delta_orientation[2],
-                                                    delta_orientation[3]
-                                                ])/  h
-
-            if delta_orientation[0] >=  0.0: 
-                obj.angular_velocity = - angular_velocity
-            else:
-                obj.angular_velocity = angular_velocity
+                if delta_orientation[0] >=  0.0: 
+                    obj.angular_velocity = - angular_velocity
+                else:
+                    obj.angular_velocity = angular_velocity
     
 
     def precompute_potential_collison_pairs(self):
@@ -293,12 +293,12 @@ class PhysicsWorld():
 
                 if body_1.fixed and body_2.fixed: continue
 
-                if self.collision_groups_list[body_1.collision_group, body_2.collision_group] == 0: continue
+                #if self.collision_groups_list[body_1.collision_group : body_2.collision_group] == 0: continue
 
                 self.potential_collision_pairs_list.append((i, j))
         
         # Create a field to store the collision pairs
-        self.collision_pairs_constraints = ti.field(dtype=CollisionPairConstraint, shape=(len(self.potential_collision_pairs_list)))
+        self.collision_pairs_constraints = CollisionPairConstraint.field(shape=(len(self.potential_collision_pairs_list)))
         self.broad_phase_collision_check = ti.field(dtype=ti.i32, shape=(len(self.potential_collision_pairs_list)))
 
 
@@ -311,10 +311,10 @@ class PhysicsWorld():
             self.collision_pairs_constraints[i].body_1_idx = body_1_idx
             self.collision_pairs_constraints[i].body_2_idx = body_2_idx
             self.collision_pairs_constraints[i].collision  = False
-            self.collision_pairs_constraints[i].static_friction_coefficient  = \
-                (body_1.static_friction_coefficient + body_2.static_friction_coefficient)/2
-            self.collision_pairs_constraints[i].dynamic_friction_coefficient = \
-                (body_1.dynamic_friction_coefficient + body_2.dynamic_friction_coefficient)/2
+            self.collision_pairs_constraints[i].static_friction_coeff  = \
+                (body_1.material.static_friction_coeff + body_2.material.static_friction_coeff)/2
+            self.collision_pairs_constraints[i].dynamic_friction_coeff= \
+                (body_1.material.dynamic_friction_coeff+ body_2.material.static_friction_coeff)/2
 
     @ti.func
     def broad_phase_collision(self):
@@ -329,28 +329,30 @@ class PhysicsWorld():
         
         for i in ti.static(range(self.collision_pairs_constraints.shape[0])):
 
-            constraint = self.collision_pairs_constraints[i]
-
-            body_1 = self.bodies_list[constraint.body_1_idx]
+            constraint = self.collision_pairs_constraints[i]            
+            
+            body_1 = self.rigid_bodies[constraint.body_1_idx]
             
             body_1_collider = self.get_collider_info(body_1.collider_type, body_1.collider_idx)
 
-            body_2 = self.bodies_list[constraint.body_2_idx]
+            body_2 = self.rigid_bodies[constraint.body_2_idx]
 
             body_2_collider = self.get_collider_info(body_2.collider_type, body_2.collider_idx)
 
             aabb_safety_expansion_1 = abs(body_1.velocity) * self.dt * 2.0
             aabb_safety_expansion_2 = abs(body_2.velocity) * self.dt * 2.0
 
-            broad_phase_check = broad_phase_collision_detection(body_1, 
-                                                                body_2, 
-                                                                body_1_collider, 
-                                                                body_2_collider, 
-                                                                aabb_safety_expansion_1, 
-                                                                aabb_safety_expansion_2
-            )
+            print(body_1_collider.type)
+            print(body_2_collider.type)
+            # broad_phase_check = broad_phase_collision_detection(body_1, 
+            #                                                     body_2, 
+            #                                                     body_1_collider, 
+            #                                                     body_2_collider, 
+            #                                                     aabb_safety_expansion_1, 
+            #                                                     aabb_safety_expansion_2
+            # )
 
-            self.broad_phase_collision_check[i] = broad_phase_check
+            self.broad_phase_collision_check[i] = False
 
 
     @ti.func
@@ -367,11 +369,11 @@ class PhysicsWorld():
                 
             constraint = self.collision_pairs_constraints[i]
 
-            body_1 = self.bodies_list[constraint.body_1_idx]
+            body_1 = self.rigid_bodies[constraint.body_1_idx]
             
             body_1_collider = self.get_collider_info(body_1.collider_type, body_1.collider_idx)
 
-            body_2 = self.bodies_list[constraint.body_2_idx]
+            body_2 = self.rigid_bodies[constraint.body_2_idx]
 
             body_2_collider = self.get_collider_info(body_2.collider_type, body_2.collider_idx)
             
@@ -389,7 +391,6 @@ class PhysicsWorld():
                 constraint.penetration  = narrow_phase_response.penetration
 
 
-    @ti.func
     def get_collider_info(self, collider_type, collider_idx):
         """
             Get the collider information.
@@ -401,19 +402,20 @@ class PhysicsWorld():
                 collider_idx : int
                     The collider index
         """
-
-        if collider_type == colliders.BOX:
-            return self.box_colliders[collider_idx]
-        elif collider_type == colliders.SPHERE:
-            return self.sphere_colliders[collider_idx]
-        elif collider_type == colliders.CYLINDER:
-            return self.cyllinder_colliders[collider_idx]
-        elif collider_type == colliders.PLANE:
-            return self.plane_colliders[collider_idx]
-        elif collider_type == colliders.HEIGHTFIELD:
-            return self.heightfield_colliders[collider_idx]
+        if collider_type == collision.BOX:
+            collider =  self.box_colliders[collider_idx]
+        elif collider_type == collision.SPHERE:
+            collider =  self.sphere_colliders[collider_idx]
+        elif collider_type == collision.CYLINDER:
+            collider =  self.cyllinder_colliders[collider_idx]
+        elif collider_type == collision.PLANE:
+            collider =  self.plane_colliders[collider_idx]
+        elif collider_type == collision.HEIGHTFIELD:
+            collider =  self.heightfield_colliders[collider_idx]
         else:
-            return None
+            collider =  BoxCollider()
+        
+        return collider
  
     @ti.kernel
     def step(self):
@@ -423,22 +425,22 @@ class PhysicsWorld():
         self.broad_phase_collision()
 
         for _ in ti.static(range(self.n_substeps)): 
-            self.narrow_phase_collision()  
+            #self.narrow_phase_collision()  
             self.update_rigid_bodies_position_and_orientation(h)
-            self.solve_positions(h)
+            #self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)
-            self.solve_velocities(h)
+            #self.solve_velocities(h)
         
-        if self.visualizer_active:
-            self.compute_transformations()
-            self.render_collision_bodies()
+        # if self.visualizer_active:
+        #     self.compute_transformations()
+        #     self.render_collision_bodies()
     
     @ti.kernel
     def compute_transformations(self):
         """
             Compute the transformations.
         """
-        for i in range(self.n_rigid_bodies):
+        for i in range(self.n_bodies):
             body = self.bodies_list[i]
             if body.is_fixed: continue
             self.rigid_bodies_transformations[i] = body.get_transformation_matrix()
@@ -453,16 +455,16 @@ class PhysicsWorld():
             # Get the collider from the collider list
             collider = self.get_collider_info(collider_type, body.collider_idx)
 
-            if collider_type == colliders.BOX:
+            if collider_type == collision.BOX:
                 full_extents = collider.half_extents * 2.0                
                 self.visualizer[name].set_object(
                                                  g.Box(full_extents.to_numpy()), 
                                                  material = g.MeshPhongMaterial(color=0xff0000))
-            elif collider_type == colliders.SPHERE:
+            elif collider_type == collision.SPHERE:
                 radius = collider.radius
                 self.visualizer[name].set_object( g.Sphere(radius), 
                                                   material = g.MeshPhongMaterial(color=0xff0000))
-            elif collider_type == colliders.CYLINDER:
+            elif collider_type == collision.CYLINDER:
                 
                 radius = collider.radius
                 height = collider.height
@@ -470,7 +472,7 @@ class PhysicsWorld():
                 self.visualizer[name].set_object( g.Cylinder(height, radius = radius), 
                                                   material = g.MeshPhongMaterial(color=0xff0000))
             
-            elif collider_type == colliders.PLANE:
+            elif collider_type == collision.PLANE:
 
                 normal = collider.normal.to_numpy()
                 offset = collider.offset.to_numpy()
@@ -484,7 +486,7 @@ class PhysicsWorld():
                 self.visualizer[name].set_object( g.TriangularMeshGeometry(render_plane(normal, offset)), 
                                                   material = texture)
 
-            elif collider_type == colliders.HEIGHTFIELD:
+            elif collider_type == collision.HEIGHTFIELD:
                 texture = g.GenericMaterial(
                     color = 0xaaaaaa,
                     wireframe = True,

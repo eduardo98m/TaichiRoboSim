@@ -1,9 +1,11 @@
-from colliders import BoxCollider
-import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
-from physics.collision.collision_utils import get_boxes_axes, \
+import taichi as ti
+
+from src.physics.quaternion import quaternion
+
+from .colliders import BoxCollider
+from .collision import CollisionResponse
+from .collision_utils import get_boxes_axes, \
                                 get_box_vertices, \
                                 get_vertices_projection_max_and_min, \
                                 get_projections_overlap

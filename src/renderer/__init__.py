@@ -1,2 +1,2 @@
-from renderer.heightfield import render_heightfield
-from renderer.plane import render_plane
+from src.renderer.heightfield import render_heightfield
+from src.renderer.plane import render_plane

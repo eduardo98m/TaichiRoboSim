@@ -1,7 +1,9 @@
-from base_constraints import *
 import taichi as ti
 import taichi.math as tm
+
 from quaternion import quaternion
+
+from .base_constraints import *
 
 @ti.dataclass
 class HingeJointConstraint:
@@ -115,8 +117,8 @@ def compute_hinge_joint_constraint(
             -> Time step (substep)
     """
 
-    force = ti.Vector([0.0, 0.0, 0.0])
-    torque = ti.Vector([0.0, 0.0, 0.0])
+    force  = ti.Vector.zero(ti.f32, 3)
+    torque = ti.Vector.zero(ti.f32, 3)
     # Compute the aligned axis in the world coordinates
 
     e1_aligned_axis_wc = quaternion.rotate_vector(obj_1.orientation, constraint.e1_aligned_axis)

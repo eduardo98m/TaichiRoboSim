@@ -1,9 +1,12 @@
-from colliders import BoxCollider, SphereCollider
+
 import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
-from physics.collision.collision_utils import get_box_vertices, \
+
+from quaternion import quaternion
+
+from .collision import CollisionResponse
+from .colliders import BoxCollider, SphereCollider
+from .collision_utils import get_box_vertices, \
                                 get_vertices_projection_max_and_min, \
                                 get_projections_overlap
 

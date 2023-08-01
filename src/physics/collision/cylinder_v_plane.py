@@ -1,11 +1,11 @@
-from colliders import CylinderCollider, PlaneCollider
 import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
 
-from collision_utils import get_projections_overlap,\
-                                project_cylinder
+from quaternion import quaternion
+
+from .collision import CollisionResponse
+from .colliders import CylinderCollider, PlaneCollider
+from .collision_utils import project_cylinder
 
 EPSILON = 1e-6
 

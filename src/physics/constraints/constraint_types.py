@@ -1,2 +1,3 @@
 
 HINGE_JOINT = 1
+CONTACT = 2

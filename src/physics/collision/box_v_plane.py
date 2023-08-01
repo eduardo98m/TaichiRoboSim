@@ -1,8 +1,11 @@
-from colliders import BoxCollider, PlaneCollider
 import taichi as ti
-from quaternion import quaternion
-from collision import CollisionResponse
 import taichi.math as tm
+
+from quaternion import quaternion
+
+from .colliders import BoxCollider, PlaneCollider
+from .collision import CollisionResponse
+
 
 
 
