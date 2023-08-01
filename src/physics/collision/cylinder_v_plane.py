@@ -30,6 +30,7 @@ def cylinder_v_plane(
         `cylinder_orientation` : ti.types.vector(4, float)
             -> The cylinder's collider orientation. Given as a unit quaternion.
     """
+    response = CollisionResponse(False)
     
     plane_normal = plane.normal
     plane_offset = plane.offset
@@ -53,27 +54,27 @@ def cylinder_v_plane(
 
     # Check if the plane offset is greater than the projection max or less than the projection min
     # If it is, then the box is not colliding with the plane
-    if plane_offset > projection_1_max or plane_offset < projection_1_min:
-        return CollisionResponse(False)
-    
-    # If the plane offset is between the projection min and max, then the box is colliding with the plane
-    # Calculate the overlap
-    overlap = plane_offset - projection_1_min
+    if not(plane_offset > projection_1_max or plane_offset < projection_1_min):
+        # If the plane offset is between the projection min and max, then the box is colliding with the plane
+        # Calculate the overlap
+        overlap = plane_offset - projection_1_min
 
+        
+        # Update the minimum overlap and collision normal
+        minOverlap = overlap
+        direction = 1.0 # The direction is set to positive because we want the planes to act as if they were one-sided
+        normal = axis
+        
+        # Compute the penetration depth and contact points
+        penetration = minOverlap
+        r_1 = quaternion.rotate_vector(cylinder_orientation, direction * normal) * minOverlap
+        
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_1,
+            ti.Vector([0.0, 0.0, 0.0])
+        )
     
-    # Update the minimum overlap and collision normal
-    minOverlap = overlap
-    direction = 1.0 # The direction is set to positive because we want the planes to act as if they were one-sided
-    normal = axis
-    
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_1 = quaternion.rotate_vector(cylinder_orientation, direction * normal) * minOverlap
-    
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_1,
-        ti.Vector([0.0, 0.0, 0.0])
-    )
+    return response

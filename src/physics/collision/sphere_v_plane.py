@@ -33,7 +33,7 @@ def sphere_v_plane(
             -> Position of the sphere
 
     """
-
+    response = CollisionResponse(False)
     # Get the radius of the sphere
     radius = sphere.radius
 
@@ -44,28 +44,30 @@ def sphere_v_plane(
     # Calculate the distance from the center of the sphere to the plane
     distance = tm.dot(sphere_position, plane_normal) + plane_offset
 
+    collision = False
 
     if distance - radius > 0 :
-        return CollisionResponse(False)
-    
+        collision = False
     elif distance + radius < 0:
-
-        return CollisionResponse(False)
-    
+        collision = False
     else:
+        collision = True
+    
+    if collision: 
         penetration = radius - distance
 
         r_1 = -plane_normal * radius
 
         r_2 = tm.dot(sphere_position + r_1, plane_normal) * plane_normal
 
-        return CollisionResponse(
+        response =  CollisionResponse(
             collision=True,
             normal=plane_normal,
             penetration=penetration,
             r_1=r_1,
             r_2=r_2
         )
+    return response
 
 
 

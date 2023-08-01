@@ -18,9 +18,11 @@ def sphere_v_box(
     box             : BoxCollider,
     sphere_position : ti.types.vector(3, float),
     box_position    : ti.types.vector(3, float),
+    sphere_orientation : ti.types.vector(4, float),
     box_orientation : ti.types.vector(4, float)
 ) -> CollisionResponse:
     
+    response = CollisionResponse(False)
     # Get the box's face normals
     box_face_normals  = quaternion.to_rotation_matrix(box_orientation)
     
@@ -32,10 +34,13 @@ def sphere_v_box(
     
     # Test each axis
     minOverlap = float('inf')
-    direction = 0.0
+    direction  = 0.0
+    collision  = False
+    normal     = ti.Vector([0.0, 0.0, 0.0], float)
+
     vertices = get_box_vertices(box.half_extents, box_position, box_orientation)
     for i in range(axes.n):
-        axis = axes[i]
+        axis = axes[i, :]
         
         # Project the sphere onto the axis
         # TODO : Is this correct?
@@ -51,24 +56,28 @@ def sphere_v_box(
                                   projection_box_min,
                                   projection_box_max)
         if overlap <= 0:
-            return CollisionResponse(False)
+            break
         
         elif overlap < minOverlap:
             # Update the minimum overlap and collision normal
             minOverlap = overlap
             direction = dir
             normal = axis
+            collision = True
     
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_sphere = quaternion.rotate_vector(box_orientation, direction * normal) * minOverlap
-    r_box = quaternion.rotate_vector(box_orientation, -direction * normal) * minOverlap
-    
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_sphere,
-        r_box
-    )
+    if collision:
+        # Compute the penetration depth and contact points
+        penetration = minOverlap
+        r_sphere = quaternion.rotate_vector(box_orientation, direction * normal) * penetration
+        r_box = quaternion.rotate_vector(box_orientation, -direction * normal) * penetration
+        
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_sphere,
+            r_box
+        )
+
+    return response
 

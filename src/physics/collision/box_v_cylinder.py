@@ -44,6 +44,7 @@ def box_v_cylinder(
         `CollisionResponse`
             -> The collision response between the two colliders.
     """
+    response = CollisionResponse(False)
     
     # Get the box's face normals
     box_face_normals  = quaternion.to_rotation_matrix(box_orientation)
@@ -51,7 +52,7 @@ def box_v_cylinder(
     # Add the cylinder's axis as an additional axis
     cylinder_axis = quaternion.rotate_vector(cylinder_orientation, ti.Vector([0.0, 0.0, 1.0]))
     
-    axes = ti.Matrix.zero(7, 3, ti.f32)
+    axes = ti.Matrix.zero(ti.f32, 7, 3)
     # TODO: We may need to add an additional 8th axis: (the vector from the box's center to the cylinder's center)
     axes[0:3, :] = box_face_normals
     axes[3,   :] = cylinder_axis
@@ -60,19 +61,21 @@ def box_v_cylinder(
     
     # Add the cross products of the box's face normals and the cylinder's axis as additional axes
     for i in range(3):
-        axes[4 + i,   :] = tm.cross(box_face_normals[i], cylinder_axis)
+        axes[4 + i,   :] = tm.cross(box_face_normals[i, :], cylinder_axis)
     
     # Test each axis
     minOverlap = float('inf')
     direction = 0.0
+    normal = ti.Vector([0.0, 0.0, 0.0], float)
     vertices = get_box_vertices(box.half_extents, box_position, box_orientation)
+    collision = False
 
     # We also calculate the cyllinder top and bottom vertices
     top_center    = cylinder_position + cylinder_axis * (cylinder.height / 2)
     bottom_center = cylinder_position - cylinder_axis * (cylinder.height / 2)
     
     for i in range(axes.n):
-        axis = axes[i]
+        axis = axes[i, :]
 
         if i >= 4: # These axes are not normalized as they come from a cross product
             axis = axis.normalized()
@@ -99,24 +102,27 @@ def box_v_cylinder(
                                     projection_cylinder_min,
                                     projection_cylinder_max)
         if overlap <= 0:
-            return CollisionResponse(False)
+            break
         
         elif overlap < minOverlap:
             # Update the minimum overlap and collision normal
             minOverlap = overlap
             direction = dir
             normal = axis
+            collision = True
     
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_box      = quaternion.rotate_vector(box_orientation, direction * normal) * minOverlap
-    r_cylinder = quaternion.rotate_vector(cylinder_orientation, -direction * normal) * minOverlap
-    
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_box,
-        r_cylinder
-    )
-                   
+    if collision:
+        # Compute the penetration depth and contact points
+        penetration = minOverlap
+        r_box      = quaternion.rotate_vector(box_orientation, direction * normal) * penetration
+        r_cylinder = quaternion.rotate_vector(cylinder_orientation, -direction * normal) * penetration
+        
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_box,
+            r_cylinder
+        )
+
+    return response       

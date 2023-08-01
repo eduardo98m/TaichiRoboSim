@@ -34,7 +34,7 @@ def box_v_plane(
         `box_orientation`: ti.types.vector(4, float)
             ->The orientation of the box as a unit quaternion.
     """
-
+    response = CollisionResponse(False)
     plane_normal = plane.normal
     plane_offset = plane.offset
 
@@ -44,15 +44,21 @@ def box_v_plane(
 
     distance = tm.dot(box_position, axis) + plane_offset
 
+    collision = False
     if distance - extent > 0:
-        return CollisionResponse(False)
+        collision = False
     elif  distance + extent < 0:
-        return CollisionResponse(False)
+        collision = False
     else:
-        return CollisionResponse(
+        collision = True
+    
+    if collision:
+        response = CollisionResponse(
             True,
             plane_normal,
             abs(distance) - extent,
             quaternion.rotate_vector(box_orientation, axis) * (abs(distance) - extent),
             ti.Vector([0.0, 0.0, 0.0])
         )
+    
+    return response

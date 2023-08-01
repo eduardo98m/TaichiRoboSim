@@ -77,23 +77,23 @@ def get_vertices_projection_max_and_min(
 
 @ti.func
 def get_projections_overlap(
-                projection_1_min : ti.types.vector(3,float), 
-                projection_1_max : ti.types.vector(3,float), 
-                projection_2_min : ti.types.vector(3,float), 
-                projection_2_max : ti.types.vector(3,float)
+                projection_1_min : ti.float32, 
+                projection_1_max : ti.float32, 
+                projection_2_min : ti.float32, 
+                projection_2_max : ti.float32
                 ):
     """
         Calculates the overlap given two projection edge points.
 
         Arguments:
         ----------
-        `projection_1_min` : ti.types.vector(3,float)
+        `projection_1_min` : ti.float32
             -> Minimun point of the first projection.
-        `projection_1_max` : ti.types.vector(3,float)
+        `projection_1_max` : ti.float32
             -> Maximun point of the first projection.
-        `projection_2_min` : ti.types.vector(3,float)
+        `projection_2_min` : ti.float32
             -> Minimun point of the second projection.
-        `projection_2_max` : ti.types.vector(3,float)
+        `projection_2_max` : ti.float32
             -> Maximun point of the second projection.
         
         Returns:
@@ -156,7 +156,7 @@ def get_box_vertices(
     vertices = ti.Matrix([ [0.0, 0.0, 0.0]  ] * 8)
 
     for i in range(8):
-        vertices[i] = quaternion.rotate_vector(orientation, localVertices[i]) + position
+        vertices[i, :] = quaternion.rotate_vector(orientation, localVertices[i, :]) + position
     
     return vertices
 

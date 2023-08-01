@@ -18,22 +18,26 @@ def box_v_box(
     box2: BoxCollider,
     position1: ti.types.vector(3, float),
     position2: ti.types.vector(3, float),
-    orientation1: ti.types.vector(4, float),
-    orientation2: ti.types.vector(4, float)
+    orientation_1: ti.types.vector(4, float),
+    orientation_2: ti.types.vector(4, float)
 ) -> CollisionResponse:
     """
         Calculates the collision response between to box colliders.
     
     """
+    response = CollisionResponse(False)
     
     # Get the face normals of each box
-    axes       = get_boxes_axes(orientation1, orientation2)
-    vertices_1 = get_box_vertices(box1.half_extents, position1, orientation1 )
-    vertices_2 = get_box_vertices(box2.half_extents, position2, orientation2 )
+    axes       = get_boxes_axes(orientation_1, orientation_2)
+    vertices_1 = get_box_vertices(box1.half_extents, position1, orientation_1 )
+    vertices_2 = get_box_vertices(box2.half_extents, position2, orientation_2 )
     
-    # Test each axis
     minOverlap = float('inf')
     direction  = 0.0
+    collision  = False
+    normal     = ti.Vector([0.0, 0.0, 0.0], float)
+    
+    # Test each axis
     for i in range(axes.n):
         axis = axes[i, :]
         if i >= 6:
@@ -53,28 +57,28 @@ def box_v_box(
                              projection_2_min, 
                              projection_2_max)
         if overlap <= 0:
-        
-            return CollisionResponse(False)
+            break
         
         elif overlap < minOverlap:
             # Update the minimum overlap and collision normal
             minOverlap      = overlap
             direction       = dir
             normal = axis
+            collision = True
     
-
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_1 = quaternion.rotate_vector(orientation1,  direction * normal) * minOverlap
-    r_2 = quaternion.rotate_vector(orientation2, -direction * normal) * minOverlap
-    
-    return  CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_1,
-        r_2
-    )
+    if collision:
+        penetration = minOverlap
+        r_1 = quaternion.rotate_vector(orientation_1,  direction * normal) * penetration
+        r_2 = quaternion.rotate_vector(orientation_2, -direction * normal) * penetration
+        
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_1,
+            r_2
+        )
+    return response
 
 
 

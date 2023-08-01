@@ -16,6 +16,7 @@ def sphere_v_cylinder(
     cylinder        : CylinderCollider,
     sphere_position : ti.types.vector(3, float),
     cylinder_position    : ti.types.vector(3, float),
+    sphere_orientation  : ti.types.vector(4, float),
     cylinder_orientation : ti.types.vector(4, float)
 ) -> CollisionResponse:
     """
@@ -39,6 +40,7 @@ def sphere_v_cylinder(
         `CollisionResponse`
             -> The collision response between the two colliders.
     """
+    response = CollisionResponse(False)
     
     # Add the sphere's center-to-cylinder vector as an additional axis
     center_to_cylinder_axis = (cylinder_position - sphere_position).normalized()
@@ -56,8 +58,10 @@ def sphere_v_cylinder(
     # Test each axis
     minOverlap = float('inf')
     direction = 0.0
+    collision = False
+    normal = ti.Vector([0.0, 0.0, 0.0], float)
     for i in range(axes.n):
-        axis = axes[i]
+        axis = axes[i, :]
         
         # Project the sphere onto the axis
         # TODO : Is this correct?
@@ -79,24 +83,28 @@ def sphere_v_cylinder(
                                   projection_cylinder_min,
                                   projection_cylinder_max)
         if overlap <= 0:
-            return CollisionResponse(False)
+            break
         
         elif overlap < minOverlap:
             # Update the minimum overlap and collision normal
             minOverlap = overlap
             direction = dir
             normal = axis
+            collision  = True
     
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_sphere = quaternion.rotate_vector(cylinder_orientation, direction * normal) * minOverlap
-    r_cylinder = quaternion.rotate_vector(cylinder_orientation, -direction * normal) * minOverlap
+    if collision:
+        # Compute the penetration depth and contact points
+        penetration = minOverlap
+        r_sphere = quaternion.rotate_vector(cylinder_orientation, direction * normal) * penetration
+        r_cylinder = quaternion.rotate_vector(cylinder_orientation, -direction * normal) * penetration
+        
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_sphere,
+            r_cylinder
+        )
     
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_sphere,
-        r_cylinder
-    )
+    return response
 

@@ -38,7 +38,7 @@ def sphere_v_sphere(
     `orientation_2`: ti.types.vector(4, float)
         ->Orientation of the second sphere as a quaternion (It is not used in this function)
     """
-
+    response = CollisionResponse(False)
 
     # Get the radius of the spheres
     radius_1 = sphere_1.radius
@@ -51,28 +51,30 @@ def sphere_v_sphere(
     penetration  = radius_1 + radius_2 - tm.length(rel_position)
 
     # Check if there is a collision
-    if penetration < 0:
-        return CollisionResponse(False)
+    if penetration > 0: 
+        # Calculate the normal of the collision
+        normal = tm.normalize(rel_position)
 
-    # Calculate the normal of the collision
-    normal = tm.normalize(rel_position)
+        # Calculate the contact point
+        contact_point = position_1 + normal * radius_1
 
-    # Calculate the contact point
-    contact_point = position_1 + normal * radius_1
+        # Calculate the contact point relative to the center of body 1
+        r_1 = contact_point - position_1
 
-    # Calculate the contact point relative to the center of body 1
-    r_1 = contact_point - position_1
+        # Calculate the contact point relative to the center of body 2
+        r_2 = contact_point - position_2
 
-    # Calculate the contact point relative to the center of body 2
-    r_2 = contact_point - position_2
-
-    # Return the collision response
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_1,
-        r_2
-    )
+        # Return the collision response
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_1,
+            r_2
+        )
+    else:
+        response = CollisionResponse(False)
     
+    return response
+        
     

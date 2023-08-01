@@ -4,7 +4,7 @@ import taichi.math as tm
 
 
 @ti.func
-def aabb_v_plane(aabb : ti.types.matrix(2,3, float) ,
+def aabb_v_plane(aabb : ti.types.matrix(2,3, ti.float32) ,
                  plane : PlaneCollider) -> bool:
     """
         Calculates the collision response between an AABB and a plane.
@@ -22,8 +22,8 @@ def aabb_v_plane(aabb : ti.types.matrix(2,3, float) ,
     plane_offset = plane.offset
 
     # Compute the aabb center and extents
-    center = (aabb[0] + aabb[1]) * 0.5
-    extents = aabb[1] - center 
+    center = (aabb[0, :] + aabb[1, :]) * 0.5
+    extents = aabb[1, :] - center 
 
     # Compute the projection interval radius of the aabb onto the plane normal
     radius = tm.dot(extents, abs(plane_normal))

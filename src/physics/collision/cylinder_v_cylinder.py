@@ -44,7 +44,7 @@ def cylinder_v_cylinder(
         `CollisionResponse`
             -> The collision response between the two colliders.
     """
-    
+    response = CollisionResponse(False)
 
     axis_1 = quaternion.rotate_vector(orientation_1, ti.Vector([0.0, 0.0, 1.0]))
         
@@ -85,8 +85,13 @@ def cylinder_v_cylinder(
     top_center_2    = position_2 + axis_2 * (cylinder_2.height / 2)
     bottom_center_2 = position_2 - axis_2 * (cylinder_2.height / 2)
     
+
+    direction  = 0.0
+    collision  = False
+    direction  = 1
+    normal     = ti.Vector([0.0, 0.0, 0.0], float)
     for i in range(axes.n):
-        axis = axes[i]
+        axis = axes[i, :]
         if i == 2: 
             # Skip the axis if it is too small
             # TODO: Is this necessary?
@@ -115,24 +120,26 @@ def cylinder_v_cylinder(
                                     projection_2_min,
                                     projection_2_max)
         if overlap <= 0:
-            return CollisionResponse(False)
+            break
         
         elif overlap < minOverlap:
             # Update the minimum overlap and collision normal
             minOverlap = overlap
             direction = dir
             normal = axis
+            collision  = True
     
-    # Compute the penetration depth and contact points
-    penetration = minOverlap
-    r_1 = quaternion.rotate_vector(orientation_1, direction * normal) * minOverlap
-    r_2 = quaternion.rotate_vector(orientation_2, -direction * normal) * minOverlap
-    
-    return CollisionResponse(
-        True,
-        normal,
-        penetration,
-        r_1,
-        r_2
-    )
-                   
+    if collision:
+        penetration = minOverlap
+        r_1 = quaternion.rotate_vector(orientation_1,  direction * normal) * penetration
+        r_2 = quaternion.rotate_vector(orientation_2, -direction * normal) * penetration
+        
+        response =  CollisionResponse(
+            True,
+            normal,
+            penetration,
+            r_1,
+            r_2
+        )
+    return response
+                    

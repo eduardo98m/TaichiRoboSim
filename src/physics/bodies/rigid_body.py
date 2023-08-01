@@ -1,8 +1,11 @@
 import taichi as ti
 import taichi.math as tm
+
 from quaternion import quaternion
+from collision import Collider
 
 from .material import Material
+
 
 @ti.dataclass
 class RigidBody:
@@ -41,8 +44,7 @@ class RigidBody:
     inv_inertia         : ti.types.matrix(3,3, float)
     dynamic_inv_interia : ti.types.matrix(3,3, float)
     fixed               : bool
-    collider_type       : ti.types.u8 
-    collider_idx        : ti.types.i32 
+    collider            : Collider
     collision_group     : ti.types.i32
     material            : Material
 

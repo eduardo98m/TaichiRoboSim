@@ -7,6 +7,8 @@ CYLINDER    = 3
 PLANE       = 4
 HEIGHTFIELD = 5
 
+
+
 @ti.dataclass
 class BoxCollider:
     """
@@ -18,16 +20,13 @@ class BoxCollider:
         -> Half widths of the box
     """
     half_extents : ti.types.vector(3, float)
-    aabb         : ti.types.matrix(2,3, float)
-    type         : ti.types.u8 = BOX
-
-    def init(self):
-        self.type  : ti.types.u8 = BOX
 
     @ti.func
     def compute_aabb(self, position, orientation):
-        self.aabb[0, :] = position - quaternion.rotate_vector(orientation, self.half_extents)
-        self.aabb[1, :] = position + quaternion.rotate_vector(orientation, self.half_extents)
+        aabb = ti.Matrix.zero(ti.float32, 2, 3)
+        aabb[0, :] = position - quaternion.rotate_vector(orientation, self.half_extents)
+        aabb[1, :] = position + quaternion.rotate_vector(orientation, self.half_extents)
+        return aabb
 
 @ti.dataclass
 class SphereCollider:
@@ -40,17 +39,13 @@ class SphereCollider:
         -> Radius of the sphere
     """
     radius: ti.types.f32
-    aabb  : ti.types.matrix(2,3, float)
-    type  : ti.types.u8 = SPHERE
-
-    def init(self):
-        self.type  : ti.types.u8 = SPHERE
-
 
     @ti.func
     def compute_aabb(self, position, orientation):
-        self.aabb[0, :] = position - self.radius
-        self.aabb[1, :] = position + self.radius
+        aabb = ti.Matrix.zero(ti.float32, 2, 3)
+        aabb[0, :] = position - self.radius
+        aabb[1, :] = position + self.radius
+        return aabb
 
 @ti.dataclass
 class CylinderCollider:
@@ -68,17 +63,15 @@ class CylinderCollider:
 
     radius: ti.types.f32
     height: ti.types.f32
-    aabb  : ti.types.matrix(2,3, float)
-    type  : ti.types.u8 = CYLINDER
 
-    def init(self):
-        self.type  : ti.types.u8 = CYLINDER
 
     @ti.func
     def compute_aabb(self, position, orientation):
+        aabb = ti.Matrix.zero(ti.float32, 2, 3)
         abb_vector = quaternion.rotate_vector(orientation, ti.Vector([self.radius, self.radius, self.height / 2])) 
-        self.aabb[0, :] = position - abb_vector
-        self.aabb[1, :] = position + abb_vector
+        aabb[0, :] = position - abb_vector
+        aabb[1, :] = position + abb_vector
+        return aabb
 
 @ti.dataclass
 class PlaneCollider:
@@ -96,10 +89,7 @@ class PlaneCollider:
 
     normal: ti.types.vector(3, float)
     offset: ti.types.f32
-    type  : ti.types.u8 = PLANE
-    
-    def init(self):
-        self.type  : ti.types.u8 = PLANE
+
 
 
 
@@ -129,6 +119,58 @@ class HeightFieldCollider:
         self.aabb[0, :] = position - quaternion.rotate_vector(orientation, ti.Vector([x_coordinates[0],  y_coordinates[0], height_field_data[0,0]]))
         self.aabb[1, :] = position + quaternion.rotate_vector(orientation, ti.Vector([x_coordinates[-1], y_coordinates[-1], height_field_data[-1,-1]]))
     
+
+@ti.dataclass
+class Collider:
+    """
+    Class for dynamic colliders
+    
+    Arguments:
+    ----------
+    `type` : ti.types.u8
+        -> Type of the collider
+    """
+    type : ti.types.u8
+    box_collider : BoxCollider
+    sphere_collider : SphereCollider
+    cylinder_collider : CylinderCollider
+    plane_collider : PlaneCollider
+    aabb : ti.types.matrix(2,3, float)
+
+    @ti.func
+    def compute_aabb(self, position, orientation):
+        if self.type == BOX:
+            self.aabb = self.box_collider.compute_aabb(position, orientation)
+        elif self.type == SPHERE:
+            self.aabb = self.sphere_collider.compute_aabb(position, orientation)
+        elif self.type == CYLINDER:
+            self.aabb = self.cylinder_collider.compute_aabb(position, orientation)
+        else:
+            self.aabb = ti.Matrix.zero(ti.float32, 2, 3)
+
+
+
+
+
+
+
+@ti.dataclass
+class StaticCollider:
+    """
+    Class for static colliders
+    
+    Arguments:
+    ----------
+    `type` : ti.types.u8
+        -> Type of the collider
+    """
+    type                  : ti.types.u8
+    box_collider          : BoxCollider
+    sphere_collider       : SphereCollider
+    cylinder_collider     : CylinderCollider
+    plane_collider        : PlaneCollider
+    height_field_collider : HeightFieldCollider
+
 
 
 if __name__ == "__main__":
