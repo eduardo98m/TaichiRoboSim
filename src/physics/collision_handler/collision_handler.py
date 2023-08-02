@@ -7,36 +7,23 @@
 
 import taichi as ti
 import taichi.math as tm
-from typing import List, Union
 
-#from bodies import RigidBody
-from .aabb_v_aabb import aabb_v_aabb
-from .aabb_v_plane import aabb_v_plane
-from .colliders import Collider
-from .colliders import BOX, CYLINDER, SPHERE ,PLANE
-from .collision import CollisionResponse
+from bodies import RigidBody
+from collision import Collider, CollisionResponse,\
+                     PLANE, SPHERE, BOX, CYLINDER,\
+                     box_v_box, sphere_v_sphere, cylinder_v_cylinder,\
+                     sphere_v_cylinder, sphere_v_box, box_v_cylinder,\
+                     box_v_plane, sphere_v_plane, cylinder_v_plane,\
+                     aabb_v_plane, aabb_v_aabb
 
 
-from .box_v_box import box_v_box
-from .sphere_v_sphere import sphere_v_sphere
-from .cylinder_v_cylinder import cylinder_v_cylinder
 
-from .sphere_v_cylinder import sphere_v_cylinder
-from .sphere_v_box import sphere_v_box
-from .box_v_cylinder import box_v_cylinder
-
-from .box_v_plane import box_v_plane
-from .sphere_v_plane import sphere_v_plane
-from .cylinder_v_plane import cylinder_v_plane
 
 
 @ti.func
-def broad_phase_collision_detection(body_1 : ti.template(),
-                                    body_2 : ti.template(),
-                                    body_1_collider: Collider,
-                                    body_2_collider: Collider,
-                                    aabb_safety_expansion_1 : ti.types.vector(3, float),
-                                    aabb_safety_expansion_2 : ti.types.vector(3, float))-> bool:
+def broad_phase_collision_detection(body_1 : RigidBody,
+                                    body_2 : RigidBody,
+                                    dt : ti.float32)-> bool:
     """
         Broad Phase Collision Detection Function.
         This function is used to detect possible collisions between two rigid bodies.
@@ -56,6 +43,13 @@ def broad_phase_collision_detection(body_1 : ti.template(),
         `aabb_2_security_factor` : ti.types.f32
             -> Security factor of the second rigid body.
     """
+    body_1_collider = body_1.collider
+    body_2_collider = body_2.collider
+
+    aabb_safety_expansion_1 = abs(body_1.velocity) * dt * 2.0
+    aabb_safety_expansion_2 = abs(body_2.velocity) * dt * 2.0
+
+
     collision  = False
     if body_1_collider.type == PLANE:
         body_2_collider.compute_aabb(body_2.position, body_2.orientation)
@@ -105,15 +99,16 @@ def flip_response(collision_response : CollisionResponse):
     )
 
 @ti.func
-def narrow_phase_collision_detection_and_response(body_1 : ti.template(), 
-                                                  body_2 : ti.template(), 
-                                                  body_1_collider : Collider, 
-                                                  body_2_collider : Collider
+def narrow_phase_collision_detection_and_response(body_1 : RigidBody, 
+                                                  body_2 : RigidBody, 
                                                   )-> CollisionResponse:
     """
         Narrow Phase Collision Detection and Response Function.
     """
     response = CollisionResponse(False, ti.Vector([0.0, 0.0, 0.0]), 0.0, 0.0, 0.0)
+
+    body_1_collider = body_1.collider
+    body_2_collider = body_2.collider
 
     if body_1_collider.type == SPHERE and body_2_collider.type == SPHERE:
         response = sphere_v_sphere(

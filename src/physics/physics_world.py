@@ -15,7 +15,7 @@ from src.physics.collision import BoxCollider, SphereCollider, CylinderCollider,
 from constraints import constraint_types, CollisionPairConstraint
 
 from bodies.rigid_body import RigidBody
-from collision import broad_phase_collision_detection, narrow_phase_collision_detection_and_response
+from collision_handler import broad_phase_collision_detection, narrow_phase_collision_detection_and_response
 from constraints import compute_contact_constraint, compute_contact_velocity_constraint
 
 
@@ -56,9 +56,10 @@ class PhysicsWorld():
 
         self.visualizer_active = use_visualizer
         if use_visualizer:
-            zmq_url = "tcp://127.0.0.1:" + visualizer_port
-            print("Visualizer running on URL: ", zmq_url)
-            self.visualizer = meshcat.Visualizer(zmq_url=zmq_url)
+            # zmq_url = "tcp://127.0.0.1:" + visualizer_port
+            # print("Visualizer running on URL: ", zmq_url)
+            self.visualizer = meshcat.Visualizer()
+            print(self.visualizer.url())
             self.visualizer.open()
             print("Visualizer opened")
     
@@ -130,6 +131,9 @@ class PhysicsWorld():
         self.n_bodies += 1
 
         return self.n_bodies - 1
+    
+    def get_body(self, idx):
+        return self.rigid_bodies[idx]
 
     @ti.kernel
     def update_rigid_bodies_position_and_orientation(
@@ -148,7 +152,7 @@ class PhysicsWorld():
                 h : float 
                     The time step (substep)
         """
-        for i in ti.static(range(self.n_bodies)):
+        for i in range(self.n_bodies):
             obj = self.rigid_bodies[i]
             # Check if the object is static
             if not obj.fixed:
@@ -170,6 +174,8 @@ class PhysicsWorld():
                 )
                 # Update orientation
                 obj.orientation = quaternion.rotate_by_axis(obj.orientation, obj.angular_velocity, h)
+                # Put the updated object in the rigid bodies list
+                self.rigid_bodies[i] = obj
     @ti.kernel
     def update_rigid_bodies_velocities(
         self,
@@ -188,7 +194,7 @@ class PhysicsWorld():
                     The time step (substep)     
         """
 
-        for i in ti.static(range(self.n_bodies)):
+        for i in range(self.n_bodies):
             obj = self.rigid_bodies[i]
             if not obj.fixed:
                 obj.velocity = (obj.position - obj.prev_position) / h
@@ -206,6 +212,7 @@ class PhysicsWorld():
                     obj.angular_velocity = - angular_velocity
                 else:
                     obj.angular_velocity = angular_velocity
+                self.rigid_bodies[i] = obj
     
 
     def precompute_potential_collison_pairs(self):
@@ -256,31 +263,19 @@ class PhysicsWorld():
                 https://matthias-research.github.io/pages/publications/PBDBodies.pdf
         """
         
-        for i in ti.static(range(self.collision_pairs_constraints.shape[0])):
+        for i in range(self.collision_pairs_constraints.shape[0]):
 
             constraint = self.collision_pairs_constraints[i]            
             
             body_1 = self.rigid_bodies[constraint.body_1_idx]
-            
-            body_1_collider = body_1.collider
 
             body_2 = self.rigid_bodies[constraint.body_2_idx]
 
-            body_2_collider = body_2.collider
-
-            aabb_safety_expansion_1 = abs(body_1.velocity) * self.dt * 2.0
-            aabb_safety_expansion_2 = abs(body_2.velocity) * self.dt * 2.0
-
             broad_phase_check = broad_phase_collision_detection(body_1, 
                                                                 body_2, 
-                                                                body_1_collider, 
-                                                                body_2_collider, 
-                                                                aabb_safety_expansion_1, 
-                                                                aabb_safety_expansion_2
-            )
+                                                                self.dt)
 
             self.broad_phase_collision_check[i] = broad_phase_check
-
 
     @ti.kernel
     def narrow_phase_collision(self):
@@ -297,18 +292,10 @@ class PhysicsWorld():
             constraint = self.collision_pairs_constraints[i]
 
             body_1 = self.rigid_bodies[constraint.body_1_idx]
-            
-            body_1_collider = body_1.collider
 
             body_2 = self.rigid_bodies[constraint.body_2_idx]
-
-            body_2_collider = body_2.collider
             
-            narrow_phase_response = narrow_phase_collision_detection_and_response(body_1,
-                                                                                    body_2,
-                                                                                    body_1_collider,
-                                                                                    body_2_collider
-                                                                                )
+            narrow_phase_response = narrow_phase_collision_detection_and_response(body_1,  body_2)
 
             if narrow_phase_response.collision:
                 constraint.collision         = True
@@ -316,6 +303,8 @@ class PhysicsWorld():
                 constraint.r_2               = narrow_phase_response.r_2
                 constraint.contact_normal    = narrow_phase_response.normal
                 constraint.penetration_depth = narrow_phase_response.penetration
+            
+            self.collision_pairs_constraints[i] = constraint
 
 
     @ti.kernel
@@ -328,7 +317,9 @@ class PhysicsWorld():
             
             constraint = self.collision_pairs_constraints[i]
 
-            if not constraint.collision: continue
+            if not constraint.collision: 
+                constraint.reset_lambda()
+                continue
             
             body_1 = self.rigid_bodies[constraint.body_1_idx]
             
@@ -337,9 +328,9 @@ class PhysicsWorld():
             response = compute_contact_constraint(body_1, body_2, constraint, h)
 
             # Udapte the bodies and the constraint
-            body_1 = response.body_1
-            body_2 = response.body_2
-            constraint = response.contact_constraint
+            self.rigid_bodies[constraint.body_1_idx] = response.body_1
+            self.rigid_bodies[constraint.body_2_idx] = response.body_2
+            self.collision_pairs_constraints[i] = response.contact_constraint
     
     @ti.kernel
     def solve_velocities(self, h: ti.f32):
@@ -360,8 +351,8 @@ class PhysicsWorld():
             response = compute_contact_velocity_constraint(body_1, body_2, constraint, h, tm.length(self.gravity_vector))
 
             # Udapte the bodies and the constraint
-            body_1 = response.body_1
-            body_2 = response.body_2
+            self.rigid_bodies[constraint.body_1_idx] = response.body_1
+            self.rigid_bodies[constraint.body_2_idx] = response.body_2
 
     def step(self):
 
@@ -369,7 +360,7 @@ class PhysicsWorld():
 
         self.broad_phase_collision()
 
-        for _ in ti.static(range(self.n_substeps)): 
+        for _ in range(self.n_substeps): 
             self.narrow_phase_collision()  
             self.update_rigid_bodies_position_and_orientation(h)
             self.solve_positions(h)
@@ -386,16 +377,16 @@ class PhysicsWorld():
             Compute the transformations.
         """
         for i in range(self.n_bodies):
-            body = self.bodies_list[i]
-            if body.is_fixed: continue
-            self.rigid_bodies_transformations[i] = body.get_transformation_matrix()
+            body = self.rigid_bodies[i]
+            if body.fixed: continue
+            self.rigid_bodies_transformations[i] = body.compute_transformation_matrix()
             
     
 
     def set_visual_objects(self):
         
-        for body in self.bodies_list:
-            name = "body " + i
+        for i, body in enumerate(self.bodies_list):
+            name = "body " + str(i)
             collider_type = body.collider.type
             # Get the collider from the collider list
             collider = body.collider
@@ -420,16 +411,16 @@ class PhysicsWorld():
             elif collider_type == collision.PLANE:
 
                 normal = collider.plane_collider.normal.to_numpy()
-                offset = collider.plane_collider.offset.to_numpy()
+                offset = float(collider.plane_collider.offset)
 
                 # Create a checkerboard texture for the plane
                 texture = g.GenericMaterial(
                     color = 0xaaaaaa,
                     vertexColors=True
                 )
-                
-                self.visualizer[name].set_object( g.TriangularMeshGeometry(render_plane(normal, offset)), 
-                                                  material = texture)
+                vertices, faces = render_plane(normal, offset)
+                self.visualizer[name].set_object( g.TriangularMeshGeometry(vertices, faces), 
+                                                  )
 
             elif collider_type == collision.HEIGHTFIELD:
                 texture = g.GenericMaterial(
@@ -451,8 +442,8 @@ class PhysicsWorld():
         """
 
         for i in range(self.n_bodies):
-            if self.bodies_list[i].is_fixed: continue
-            name = "body " + i
+            if self.bodies_list[i].fixed: continue
+            name = "body " + str(i)
             self.visualizer[name].set_transform(self.rigid_bodies_transformations[i].to_numpy())
 
             

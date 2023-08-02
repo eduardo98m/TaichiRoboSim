@@ -36,7 +36,7 @@ def positional_constraint_lagrange_multiplier_update(
             -> Contraint compliance 
     """
     alpha_p = alpha / h**2
-    return  -c - alpha_p * lagrange_mult / (w_1 + w_2 + alpha_p)
+    return  (-c - alpha_p * lagrange_mult )/ (w_1 + w_2 + alpha_p)
 
 
 
@@ -99,7 +99,7 @@ def compute_positional_constraint(
     w_2 = 0.0
     r_1 = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
     r_2 = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
-    if c <= EPSILON:
+    if c >= EPSILON:
         # We need to rotate the r vectors to the world frame
         # And Calculate the generalized inverse mass
         
@@ -116,8 +116,7 @@ def compute_positional_constraint(
         delta_lagrange_mult = positional_constraint_lagrange_multiplier_update(c, w_1, w_2, lagrange_mult, h, compliance)
     
 
-    impulse = delta_lagrange_mult * n
-    
+    impulse = - delta_lagrange_mult * n
     new_position_1   = body_1.position
     new_orietation_1 = body_1.orientation
     new_position_2   = body_2.position 
@@ -134,10 +133,9 @@ def compute_positional_constraint(
         new_position_2   = body_2.position - impulse * w_2
         new_orietation_2 = quaternion.rotate_by_axis(q = body_2.orientation, 
                                                      axis = body_2.dynamic_inv_interia @ tm.cross(r_2, impulse),
-                                                     magnitude = 1)
+                                                     magnitude = -1)
     
     force = impulse / h**2
-
     return ConstraintResponse(
         force               = force,
         new_lagrange_mult   = lagrange_mult + delta_lagrange_mult,

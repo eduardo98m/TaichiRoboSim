@@ -6,12 +6,12 @@ def render_plane(normal: np.ndarray, offset: np.ndarray, extent: float = 20.0):
 
     Arguments:
     ----------
-    normal : np.ndarray
+    `normal` : np.ndarray
         -> Normal vector of the plane
-    offset : np.ndarray
+    `offset` : np.ndarray
         -> Offset of the plane
     
-    extent : float
+    `extent` : float
         -> Extent of the plane (length of each side) // This is for rendering purpose only
 
     Output:
