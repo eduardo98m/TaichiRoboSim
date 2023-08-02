@@ -12,10 +12,11 @@ from src.renderer import render_heightfield, render_plane
 import src.physics.collision as collision
 from src.physics.collision import BoxCollider, SphereCollider, CylinderCollider, HeightFieldCollider, PlaneCollider
 
-from constraints import hinge_joint_constraint, constraint_types, CollisionPairConstraint
+from constraints import constraint_types, CollisionPairConstraint
 
 from bodies.rigid_body import RigidBody
 from collision import broad_phase_collision_detection, narrow_phase_collision_detection_and_response
+from constraints import compute_contact_constraint, compute_contact_velocity_constraint
 
 
 
@@ -253,11 +254,7 @@ class PhysicsWorld():
             
             self.collision_pairs_constraints[i].body_1_idx = body_1_idx
             self.collision_pairs_constraints[i].body_2_idx = body_2_idx
-            self.collision_pairs_constraints[i].collision  = False
-            self.collision_pairs_constraints[i].static_friction_coeff  = \
-                (body_1.material.static_friction_coeff + body_2.material.static_friction_coeff)/2
-            self.collision_pairs_constraints[i].dynamic_friction_coeff= \
-                (body_1.material.dynamic_friction_coeff+ body_2.material.static_friction_coeff)/2
+            self.collision_pairs_constraints[i].init(body_1, body_2)
 
     @ti.kernel
     def broad_phase_collision(self):
@@ -285,8 +282,6 @@ class PhysicsWorld():
             aabb_safety_expansion_1 = abs(body_1.velocity) * self.dt * 2.0
             aabb_safety_expansion_2 = abs(body_2.velocity) * self.dt * 2.0
 
-            
-            
             broad_phase_check = broad_phase_collision_detection(body_1, 
                                                                 body_2, 
                                                                 body_1_collider, 
@@ -334,8 +329,51 @@ class PhysicsWorld():
                 constraint.penetration_depth = narrow_phase_response.penetration
 
 
- 
+    @ti.kernel
+    def solve_positions(self, h: ti.f32):
+        """
+            Applies the position correction, for each of the constraints in the 
+            simulation.
+        """
+        for i in range(self.collision_pairs_constraints.shape[0]):
+            
+            constraint = self.collision_pairs_constraints[i]
+
+            if not constraint.collision: continue
+            
+            body_1 = self.rigid_bodies[constraint.body_1_idx]
+            
+            body_2 = self.rigid_bodies[constraint.body_2_idx]
+
+            response = compute_contact_constraint(body_1, body_2, constraint, h)
+
+            # Udapte the bodies and the constraint
+            body_1 = response.body_1
+            body_2 = response.body_2
+            constraint = response.contact_constraint
     
+    @ti.kernel
+    def solve_velocities(self, h: ti.f32):
+        """
+            Applies the position correction, for each of the constraints in the 
+            simulation.
+        """
+        for i in range(self.collision_pairs_constraints.shape[0]):
+            
+            constraint = self.collision_pairs_constraints[i]
+
+            if not constraint.collision: continue
+            
+            body_1 = self.rigid_bodies[constraint.body_1_idx]
+            
+            body_2 = self.rigid_bodies[constraint.body_2_idx]
+
+            response = compute_contact_velocity_constraint(body_1, body_2, constraint, h, tm.length(self.gravity_vector))
+
+            # Udapte the bodies and the constraint
+            body_1 = response.body_1
+            body_2 = response.body_2
+
     def step(self):
 
         h = self.dt / self.n_substeps
@@ -345,13 +383,13 @@ class PhysicsWorld():
         for _ in ti.static(range(self.n_substeps)): 
             self.narrow_phase_collision()  
             self.update_rigid_bodies_position_and_orientation(h)
-            #self.solve_positions(h)
+            self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)
-            #self.solve_velocities(h)
+            self.solve_velocities(h)
         
-        # if self.visualizer_active:
-        #     self.compute_transformations()
-        #     self.render_collision_bodies()
+        if self.visualizer_active:
+            self.compute_transformations()
+            self.render_collision_bodies()
     
     @ti.kernel
     def compute_transformations(self):
@@ -369,31 +407,31 @@ class PhysicsWorld():
         
         for body in self.bodies_list:
             name = "body " + i
-            collider_type = body.collider_type
+            collider_type = body.collider.type
             # Get the collider from the collider list
-            collider = self.get_collider_info(collider_type, body.collider_idx)
+            collider = body.collider
 
             if collider_type == collision.BOX:
-                full_extents = collider.half_extents * 2.0                
+                full_extents = collider.box_collider.half_extents * 2.0                
                 self.visualizer[name].set_object(
                                                  g.Box(full_extents.to_numpy()), 
                                                  material = g.MeshPhongMaterial(color=0xff0000))
             elif collider_type == collision.SPHERE:
-                radius = collider.radius
+                radius = collider.sphere_collider.radius
                 self.visualizer[name].set_object( g.Sphere(radius), 
                                                   material = g.MeshPhongMaterial(color=0xff0000))
             elif collider_type == collision.CYLINDER:
                 
-                radius = collider.radius
-                height = collider.height
+                radius = collider.cylinder_collider.radius
+                height = collider.cylinder_collider.height
 
                 self.visualizer[name].set_object( g.Cylinder(height, radius = radius), 
                                                   material = g.MeshPhongMaterial(color=0xff0000))
             
             elif collider_type == collision.PLANE:
 
-                normal = collider.normal.to_numpy()
-                offset = collider.offset.to_numpy()
+                normal = collider.plane_collider.normal.to_numpy()
+                offset = collider.plane_collider.offset.to_numpy()
 
                 # Create a checkerboard texture for the plane
                 texture = g.GenericMaterial(

@@ -5,6 +5,7 @@
     Assoc : GIA-USB
 """
 import taichi as ti
+import taichi.math as tm
 
 @ti.func
 def hamilton_product(
@@ -131,6 +132,23 @@ def rotate_vector(
         q_prime)
     
     return ti.Vector([v_rot[1], v_rot[2], v_rot[3]])
+
+@ti.func
+def rotate_by_axis(q: ti.types.vector(4, float),
+                   axis: ti.types.vector(3, float),
+                   magnitude: ti.types.f32):
+    """
+    Rotate a quaternion by an axis and a magnitude
+
+    """
+    axis_expanded = magnitude* ti.Vector([
+        0.0,
+        axis[0],
+        axis[1],
+        axis[2]
+    ])
+
+    return tm.normalize(q + hamilton_product(q, axis_expanded))
 
 
 

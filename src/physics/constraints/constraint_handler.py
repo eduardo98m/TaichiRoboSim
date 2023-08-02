@@ -1,10 +1,10 @@
 
 from bodies import RigidBody
 from typing import Union
-from base_constraints import Constraint
+from .constraint import Constraint
 import taichi as ti
 from constraint_types import HINGE_JOINT
-from hinge_joint_constraint import compute_hinge_joint_constraint
+from physics.constraints.hinge_joint_constraint import compute_hinge_joint_constraint
 
 @ti.dataclass
 def handle_constraint(body_1 : RigidBody, 

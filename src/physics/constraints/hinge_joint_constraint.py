@@ -3,7 +3,7 @@ import taichi.math as tm
 
 from quaternion import quaternion
 
-from .base_constraints import *
+from .constraint import *
 
 @ti.dataclass
 class HingeJointConstraint:

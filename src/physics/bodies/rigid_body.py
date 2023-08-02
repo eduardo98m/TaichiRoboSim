@@ -31,22 +31,24 @@ class RigidBody:
     * `material` : Material
         -> Struc that stores the material properties of the object
     """
-    mass                : ti.types.f32
-    inertia             : ti.types.matrix(3,3, float) 
-    position            : ti.types.vector(3,   float)
-    prev_position       : ti.types.vector(3,   float)
-    velocity            : ti.types.vector(3,   float)
-    external_force      : ti.types.vector(3,   float) 
-    orientation         : ti.types.vector(4,   float)
-    prev_orientation    : ti.types.vector(4,   float) 
-    angular_velocity    : ti.types.vector(3,   float)
-    external_torque     : ti.types.vector(3,   float)
-    inv_inertia         : ti.types.matrix(3,3, float)
-    dynamic_inv_interia : ti.types.matrix(3,3, float)
-    fixed               : bool
-    collider            : Collider
-    collision_group     : ti.types.i32
-    material            : Material
+    mass                  : ti.types.f32
+    inertia               : ti.types.matrix(3,3, float) 
+    position              : ti.types.vector(3,   float)
+    prev_position         : ti.types.vector(3,   float)
+    velocity              : ti.types.vector(3,   float)
+    prev_velocity         : ti.types.vector(3,   float)
+    external_force        : ti.types.vector(3,   float) 
+    orientation           : ti.types.vector(4,   float)
+    prev_orientation      : ti.types.vector(4,   float) 
+    angular_velocity      : ti.types.vector(3,   float)
+    prev_angular_velocity : ti.types.vector(3,   float)
+    external_torque       : ti.types.vector(3,   float)
+    inv_inertia           : ti.types.matrix(3,3, float)
+    dynamic_inv_interia   : ti.types.matrix(3,3, float)
+    fixed                 : bool
+    collider              : Collider
+    collision_group       : ti.types.i32
+    material              : Material
 
     def init(self):
         self.prev_position = self.position
@@ -59,8 +61,11 @@ class RigidBody:
 
     @ti.func
     def compute_dynamic_inv_inertia(self):
-       rotation_matrix          = quaternion.to_rotation_matrix(self.orientation)       
-       self.dynamic_inv_interia = rotation_matrix @ self.inv_inertia @ rotation_matrix.transpose()
+        if self.fixed:
+            self.dynamic_inv_interia = ti.Matrix.zero(ti.f32, 3, 3)
+        else:
+            rotation_matrix          = quaternion.to_rotation_matrix(self.orientation)       
+            self.dynamic_inv_interia = rotation_matrix @ self.inv_inertia @ rotation_matrix.transpose()
     
     @ti.func
     def compute_transformation_matrix(self) -> ti.types.matrix(4,4, float):
