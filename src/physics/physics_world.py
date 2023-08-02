@@ -152,35 +152,24 @@ class PhysicsWorld():
             obj = self.rigid_bodies[i]
             # Check if the object is static
             if not obj.fixed:
-                # Save the previous position
+                # Save the previous state
                 obj.prev_position = obj.position
+                obj.prev_orientation = obj.orientation
+                obj.prev_velocity = obj.velocity
+                obj.prev_angular_velocity = obj.angular_velocity
 
                 # Update velocity
                 obj.velocity    = obj.velocity + (self.gravity_vector  + obj.external_force/ obj.mass) * h 
                 
                 # Update position
                 obj.position    = obj.position + obj.velocity  * h 
-
-                # Save the previous orientation
-                obj.prev_orientation = obj.orientation
-
+                
                 # Update angular velocity
                 obj.angular_velocity = obj.angular_velocity +  h * obj.inv_inertia @ (
                     obj.external_torque - tm.cross(obj.angular_velocity, obj.inertia @ obj.angular_velocity)
                 )
-
-                w_4 = ti.Vector([
-                    0.0,
-                    obj.angular_velocity[0],
-                    obj.angular_velocity[1],
-                    obj.angular_velocity[2]
-                ])
-
                 # Update orientation
-                obj.orientation = tm.normalize(
-                    obj.orientation + 0.5 * h * w_4 * obj.orientation
-                )
-
+                obj.orientation = quaternion.rotate_by_axis(obj.orientation, obj.angular_velocity, h)
     @ti.kernel
     def update_rigid_bodies_velocities(
         self,
