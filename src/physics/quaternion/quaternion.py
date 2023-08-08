@@ -135,8 +135,7 @@ def rotate_vector(
 
 @ti.func
 def rotate_by_axis(q: ti.types.vector(4, float),
-                   axis: ti.types.vector(3, float),
-                   magnitude: ti.types.f32):
+                   axis: ti.types.vector(3, float)):
     """
     Rotate a quaternion by an axis and a magnitude
 
@@ -148,7 +147,7 @@ def rotate_by_axis(q: ti.types.vector(4, float),
         axis[2]
     ])
 
-    return tm.normalize(q +  0.5 * magnitude * hamilton_product(q, axis_expanded))
+    return tm.normalize(q +  0.5 *  hamilton_product(q, axis_expanded))
 
 
 

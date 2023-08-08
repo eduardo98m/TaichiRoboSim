@@ -153,29 +153,8 @@ class PhysicsWorld():
                     The time step (substep)
         """
         for i in range(self.n_bodies):
-            obj = self.rigid_bodies[i]
-            # Check if the object is static
-            if not obj.fixed:
-                # Save the previous state
-                obj.prev_position = obj.position
-                obj.prev_orientation = obj.orientation
-                obj.prev_velocity = obj.velocity
-                obj.prev_angular_velocity = obj.angular_velocity
-
-                # Update velocity
-                obj.velocity    = obj.velocity + (self.gravity_vector  + obj.external_force/ obj.mass) * h 
-                
-                # Update position
-                obj.position    = obj.position + obj.velocity  * h 
-                
-                # Update angular velocity
-                obj.angular_velocity = obj.angular_velocity +  h * obj.inv_inertia @ (
-                    obj.external_torque - tm.cross(obj.angular_velocity, obj.inertia @ obj.angular_velocity)
-                )
-                # Update orientation
-                obj.orientation = quaternion.rotate_by_axis(obj.orientation, obj.angular_velocity, h)
-                # Put the updated object in the rigid bodies list
-                self.rigid_bodies[i] = obj
+            self.rigid_bodies[i].position_update(h)
+    
     @ti.kernel
     def update_rigid_bodies_velocities(
         self,
@@ -195,24 +174,8 @@ class PhysicsWorld():
         """
 
         for i in range(self.n_bodies):
-            obj = self.rigid_bodies[i]
-            if not obj.fixed:
-                obj.velocity = (obj.position - obj.prev_position) / h
-
-                delta_orientation = quaternion.hamilton_product(obj.orientation, 
-                                                quaternion.inverse(obj.prev_orientation))
-                
-
-                angular_velocity  = 2.0 * ti.Vector([   delta_orientation[1],
-                                                        delta_orientation[2],
-                                                        delta_orientation[3]
-                                                    ])/  h
-
-                if delta_orientation[0] >=  0.0: 
-                    obj.angular_velocity = - angular_velocity
-                else:
-                    obj.angular_velocity = angular_velocity
-                self.rigid_bodies[i] = obj
+            self.rigid_bodies[i].velocity_update(h)
+            
     
 
     def precompute_potential_collison_pairs(self):
