@@ -149,6 +149,12 @@ def rotate_by_axis(q: ti.types.vector(4, float),
 
     return tm.normalize(q +  0.5 *  hamilton_product(q, axis_expanded))
 
+@ti.func
+def get_quat_axis(q:ti.types.vector(4, float)):
+    """
+    Get the axis of a quaternion
+    """
+    return ti.Vector([q[1], q[2], q[3]])
 
 
 

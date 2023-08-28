@@ -11,24 +11,21 @@ from .angle_limit import angle_limit
 from bodies import RigidBody
 
 @ti.dataclass
-class HingeJointConstraint:
+class FixedConstraint:
 
     body_1_idx : ti.types.i32
-    body_2_idx : ti.types.i32
 
-    axes_1 : ti.types.matrix(3, 3, ti.f32)
-    axes_2 : ti.types.matrix(3, 3, ti.f32)
+    axes_1 : ti.Matrix(3, 3, ti.f32)
 
-    r_1 : ti.types.vector(3, ti.float32)
-    r_2 : ti.types.vector(3, ti.float32)
+    r_1 : ti.Vector(3, ti.float32)
 
     compliance          : ti.f32
     damping             : ti.f32
 	
-    aligned_constraint     : Constraint
-    angle_limit_constraint : Constraint
-    drive_joint_constraint : Constraint
-    attachment_point_constraint : Constraint
+    aligned_angular_constraint     : Constraint
+    angle_limit_angular_constraint : Constraint
+    driving_angular_constraint     : Constraint
+    attachment_point_constraint    : Constraint
     
     driven : bool
     drive_by_speed : bool
@@ -40,10 +37,8 @@ class HingeJointConstraint:
     lower_limit  : ti.types.f32
     upper_limit  : ti.types.f32
 
-    force  : ti.types.vector(3, ti.f32,)
-    torque : ti.types.vector(3, ti.f32,)
-
-    current_angle : ti.types.f32
+    force  = ti.Vector.zero(ti.f32, 3)
+    torque = ti.Vector.zero(ti.f32, 3)
 
     def initialize(self):
 
@@ -52,7 +47,7 @@ class HingeJointConstraint:
             compliance      = 0.0,
             r_1             = self.r_1,
             r_2             = self.r_2,
-            direction       = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32),
+            direction       = ti.Vector.zero(ti.f32, 3),
             magnitude       = 0.0
         )
 
@@ -61,7 +56,7 @@ class HingeJointConstraint:
             compliance      = 0.0,
             r_1             = self.r_1,
             r_2             = self.r_2,
-            direction       = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32),
+            direction       = ti.Vector.zero(ti.f32, 3),
             magnitude       = 0.0
         )
 
@@ -70,7 +65,7 @@ class HingeJointConstraint:
             compliance      = self.compliance,
             r_1             = self.r_1,
             r_2             = self.r_2,
-            direction       = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32),
+            direction       = ti.Vector.zero(ti.f32, 3),
             magnitude       = 0.0
         )
 
@@ -79,7 +74,7 @@ class HingeJointConstraint:
             compliance      = 0.0,
             r_1             = self.r_1,
             r_2             = self.r_2,
-            direction       = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32),
+            direction       = ti.Vector.zero(ti.f32, 3),
             magnitude       = 0.0
         )
     
@@ -132,22 +127,17 @@ class HingeJointConstraint:
         force  = ti.Vector.zero(ti.f32, 3)
         torque = ti.Vector.zero(ti.f32, 3)
 
-        a_1 = quaternion.rotate_vector(body_1.orientation, self.axes_1[0, :])
-        a_2 = quaternion.rotate_vector(body_2.orientation, self.axes_1[0, :])
-        b_1 = quaternion.rotate_vector(body_1.orientation, self.axes_1[1, :])
-        b_2 = quaternion.rotate_vector(body_2.orientation, self.axes_2[1, :])
+        a_1 = quaternion.rotate_vector(body_1.orientation, self.axes_1[0])
+        a_2 = quaternion.rotate_vector(body_2.orientation, self.axes_1[0])
+        b_1 = quaternion.rotate_vector(body_1.orientation, self.axes_1[1])
+        b_2 = quaternion.rotate_vector(body_2.orientation, self.axes_2[1])
 
         # Compute the delta rotation between the two objects
 
         delta_q = tm.cross(a_1, a_2)
 
+        self.aligned_constraint.direction = tm.normalize(delta_q)
         self.aligned_constraint.magnitude = tm.length(delta_q)
-
-        if self.aligned_constraint.magnitude == 0.0:
-            self.aligned_constraint.direction = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
-        else:
-            self.aligned_constraint.direction = tm.normalize(delta_q)
-        
 
         # Apply the angular constraint
 
@@ -158,9 +148,7 @@ class HingeJointConstraint:
 
         body_1.orientation = aligned_constraint_response.new_orientation_1
         body_2.orientation = aligned_constraint_response.new_orientation_2
-        self.aligned_constraint.lagrange_mult = aligned_constraint_response.new_lagrange_mult
         torque += aligned_constraint_response.torque
-
 
         # Compute the attachment constraint
         r_1_wc = quaternion.rotate_vector(body_1.orientation, self.r_1)
@@ -171,13 +159,10 @@ class HingeJointConstraint:
 
         delta_x = p_1 - p_2
 
+        self.attachment_point_constraint.direction = tm.normalize(delta_x)
         self.attachment_point_constraint.magnitude = tm.length(delta_x)
 
-        if self.attachment_point_constraint.magnitude == 0.0:
-            self.attachment_point_constraint.direction = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
-        else:
-            self.attachment_point_constraint.direction = tm.normalize(delta_x)
-        
+
         attachment_point_constraint_response = compute_positional_constraint(body_1, 
                                                                 body_2, 
                                                                 self.attachment_point_constraint, 
@@ -188,15 +173,11 @@ class HingeJointConstraint:
         body_2.position    = attachment_point_constraint_response.new_position_2
         body_1.orientation = attachment_point_constraint_response.new_orientation_1
         body_2.orientation = attachment_point_constraint_response.new_orientation_2
-        self.attachment_point_constraint.lagrange_mult = attachment_point_constraint_response.new_lagrange_mult
-
-
         force += attachment_point_constraint_response.force
 
         
         # TODO : This is also calculated in the angle_limit.py file and can be reused
-        self.current_angle = tm.atan2(tm.dot(tm.cross(b_1, b_2), a_1), tm.dot(b_1, b_2))
-        
+        current_angle = tm.atan2(tm.dot(tm.cross(b_1, b_2), a_1), tm.dot(b_1, b_2))
         
         if self.limited:
             
@@ -222,7 +203,7 @@ class HingeJointConstraint:
             target_angle = self.target_angle
 
             if self.drive_by_speed:
-                target_angle = self.current_angle + self.target_speed * h
+                target_angle = current_angle + self.target_speed * h
             
             
             b_target = b_1 * tm.cos(target_angle) + \
@@ -245,6 +226,7 @@ class HingeJointConstraint:
 
         self.torque = torque
         self.force  = force
+
         return PositionCorrection(
             new_position_1     = body_1.position,
             new_position_2     = body_2.position,
@@ -273,16 +255,19 @@ class HingeJointConstraint:
                 
         """
         delta_omega = (body_2.angular_velocity - body_1.angular_velocity) * tm.min(self.damping * h, 1.0)
-        
+
         response = angular_constraint_velocity_update(
             body_1,
             body_2,
             delta_omega,
             h
         )
-        # self.torque = self.torque + response.torque
+
+        self.torque += response.torque
 
         return PositionCorrection(
+            new_position_1     = response.new_position_1,
+            new_position_2     = response.new_position_2,
             new_orientation_1  = response.new_orientation_1,
             new_orientation_2  = response.new_orientation_2
         )

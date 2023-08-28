@@ -1,7 +1,7 @@
 import taichi as ti
 
 @ti.dataclass
-class ConstraintData:
+class Constraint:
     """
         Constraint class
 
@@ -40,4 +40,13 @@ class ConstraintResponse:
     new_orientation_1   : ti.types.vector(4, ti.types.f32)
     new_position_2      : ti.types.vector(3, ti.types.f32)
     new_orientation_2   : ti.types.vector(4, ti.types.f32)
+
+
+@ti.dataclass
+class PositionCorrection:
+    new_position_1        : ti.types.vector(3, ti.types.f32)
+    new_orientation_1     : ti.types.vector(4, ti.types.f32)
+    new_position_2        : ti.types.vector(3, ti.types.f32)
+    new_orientation_2     : ti.types.vector(4, ti.types.f32)
+
 

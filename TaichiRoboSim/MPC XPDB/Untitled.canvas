@@ -1,0 +1,39 @@
+{
+	"nodes":[
+		{"type":"group","id":"847ca8215c0f4636","x":80,"y":-1540,"width":1260,"height":940,"color":"2","label":"MPC"},
+		{"type":"text","text":"## Exterioceptive Inputs\n\n* Heightscan","id":"40596b966d50c964","x":-597,"y":-400,"width":325,"height":160},
+		{"type":"text","text":"## Proprioceptive Inputs\n\n* Feet contacts*\n* Joints state\n* Gravity vector\n* Angular velocity","id":"1ee5c2646843db57","x":-580,"y":-1000,"width":320,"height":235,"color":"6"},
+		{"type":"text","text":"## MODEL\n\n* Use full XPBD rigid body physics to solve the state (forces on the robot feet)","id":"e6f6662beba84114","x":100,"y":-983,"width":380,"height":183},
+		{"type":"text","text":"## Optimization Algorithm","id":"b6b9f9388f1de53a","x":1000,"y":-955,"width":320,"height":146},
+		{"type":"text","text":"## Cost function\n","id":"185d12cf9d3263c9","x":635,"y":-850,"width":225,"height":50},
+		{"type":"text","text":"## Prior Information\n* Mass and inertia information of the robot links.\n* PD constants of motors\n## Unknown Information\n* Friction coefficients (Feet ground)\n*  Terrain profile (We will assume is flat)","id":"8c07c74b9f119793","x":120,"y":-1470,"width":340,"height":365},
+		{"type":"text","text":"## NOTE\n\nAn advantage over the traditional methods is that XPBD for rigid bodies allows us to use the target position of the joint as the action to optimize.","id":"18a71261e3432d4e","x":875,"y":-1470,"width":250,"height":280,"color":"3"},
+		{"id":"881ec197b3ffa453","x":2700,"y":-1264,"width":250,"height":60,"type":"text","text":"## Latent State $l_t$"},
+		{"id":"f4a1d52ef0c3e0f4","x":2280,"y":-1270,"width":320,"height":74,"type":"text","text":"# Teacher Encoder"},
+		{"id":"1224ad76438e3675","x":3080,"y":-1031,"width":340,"height":74,"type":"text","text":"# Teacher Regresor"},
+		{"id":"1bc76b022b2c6985","x":1860,"y":-1007,"width":280,"height":231,"type":"text","text":"## MPC STATE\n\n* Feet contact forces\n* Joint torques\n* Friction forces\n* Robot COM velocity"},
+		{"type":"text","text":"## Proprioceptive Inputs\n\n* Feet contacts*\n* Joints state\n* Gravity vector\n* Angular velocity","id":"a6b071b7b598f0ef","x":1860,"y":-680,"width":320,"height":235,"color":"6"},
+		{"id":"fc01ab8c08a2312c","x":1750,"y":-1270,"width":360,"height":180,"type":"text","text":"# Priviledge Information\n* *"},
+		{"type":"text","text":"### MPC ACTIONS\n","id":"700d99f8809aa4fb","x":2268,"y":0,"width":250,"height":50},
+		{"id":"37dec756cdfa6214","x":2700,"y":0,"width":250,"height":60,"type":"text","text":"## Sum"},
+		{"type":"text","text":"# ROBOT","id":"31fa490a48c2b9c8","x":2743,"y":360,"width":165,"height":80,"color":"1"}
+	],
+	"edges":[
+		{"id":"725d971dcb291791","fromNode":"1ee5c2646843db57","fromSide":"right","toNode":"e6f6662beba84114","toSide":"left"},
+		{"id":"8900dac087d9fcaa","fromNode":"8c07c74b9f119793","fromSide":"bottom","toNode":"e6f6662beba84114","toSide":"top"},
+		{"id":"faf26337531c85b6","fromNode":"e6f6662beba84114","fromSide":"right","toNode":"185d12cf9d3263c9","toSide":"left","label":"State(s)"},
+		{"id":"86fd29d3319e1bc8","fromNode":"b6b9f9388f1de53a","fromSide":"bottom","toNode":"e6f6662beba84114","toSide":"bottom","label":"Actions"},
+		{"id":"ed028b67f1e8683f","fromNode":"185d12cf9d3263c9","fromSide":"right","toNode":"b6b9f9388f1de53a","toSide":"left","label":"Cost"},
+		{"id":"f1d0a70ea6a33086","fromNode":"e6f6662beba84114","fromSide":"right","toNode":"b6b9f9388f1de53a","toSide":"top","label":"State(s)"},
+		{"id":"ac2f92516ddf4873","fromNode":"b6b9f9388f1de53a","fromSide":"right","toNode":"700d99f8809aa4fb","toSide":"left"},
+		{"id":"bc34116cf14e0c50","fromNode":"b6b9f9388f1de53a","fromSide":"right","toNode":"1bc76b022b2c6985","toSide":"left"},
+		{"id":"ffc12cf93953aab0","fromNode":"f4a1d52ef0c3e0f4","fromSide":"right","toNode":"881ec197b3ffa453","toSide":"left"},
+		{"id":"a1241286c8927819","fromNode":"881ec197b3ffa453","fromSide":"right","toNode":"1224ad76438e3675","toSide":"left"},
+		{"id":"2e9554686a4eecd6","fromNode":"fc01ab8c08a2312c","fromSide":"right","toNode":"f4a1d52ef0c3e0f4","toSide":"left"},
+		{"id":"1cba1303b9b2f87d","fromNode":"1bc76b022b2c6985","fromSide":"right","toNode":"1224ad76438e3675","toSide":"left"},
+		{"id":"c9f896f100f538c5","fromNode":"a6b071b7b598f0ef","fromSide":"right","toNode":"1224ad76438e3675","toSide":"left"},
+		{"id":"435d24dcadf0b326","fromNode":"1224ad76438e3675","fromSide":"right","toNode":"37dec756cdfa6214","toSide":"top"},
+		{"id":"60fe61badf868d94","fromNode":"700d99f8809aa4fb","fromSide":"right","toNode":"37dec756cdfa6214","toSide":"left"},
+		{"id":"cabfdd0cc3df33dc","fromNode":"37dec756cdfa6214","fromSide":"bottom","toNode":"31fa490a48c2b9c8","toSide":"top"}
+	]
+}

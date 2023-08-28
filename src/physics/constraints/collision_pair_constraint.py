@@ -5,7 +5,7 @@ import taichi.math as tm
 from bodies import RigidBody
 from quaternion import quaternion
 
-from .constraint import ConstraintData, ConstraintResponse
+from .constraint import Constraint, ConstraintResponse
 from .positional_constraint import compute_positional_constraint, positional_contraint_generalized_inverse_mass
 
 
@@ -84,7 +84,7 @@ def compute_contact_constraint(
     p_1_prev = body_1.prev_position + quaternion.rotate_vector(body_1.prev_orientation, constraint.r_1)
     p_2_prev = body_2.prev_position + quaternion.rotate_vector(body_2.prev_orientation, constraint.r_2)
 
-    complementary_constraint_data = ConstraintData(
+    complementary_constraint_data = Constraint(
         direction     = constraint.contact_normal,
         magnitude     = constraint.penetration_depth,
         lagrange_mult = constraint.lambda_normal,
@@ -99,8 +99,6 @@ def compute_contact_constraint(
         complementary_constraint_data,
         h
     )
-    #print(constraint.lambda_normal)
-    #print(complementary_constraint_response.new_position_1)
 
     # Update the lambda_normal
     constraint.lambda_normal = complementary_constraint_response.new_lagrange_mult
@@ -125,7 +123,7 @@ def compute_contact_constraint(
         friction_direction = tm.normalize(delta_p_t)
         friction_magnitude = tm.length(delta_p_t)
 
-        friction_constraint_data = ConstraintData(
+        friction_constraint_data = Constraint(
             direction     = friction_direction,
             magnitude     = friction_magnitude,
             lagrange_mult = constraint.lambda_tangent,
@@ -240,9 +238,11 @@ def compute_contact_velocity_constraint(
         if not body_1.fixed:
             body_1.velocity = body_1.velocity +  p / body_1.mass
             body_1.angular_velocity = body_1.angular_velocity + inv_inertia_1 @ tm.cross(r_1_wc, p)
+        
         if not body_2.fixed:
             body_2.velocity = body_2.velocity -  p / body_2.mass  
             body_2.angular_velocity = body_2.angular_velocity - inv_inertia_2 @ tm.cross(r_2_wc, p)
+        
         response = ContactVelocityConstraintResponse(body_1, body_2)
         
 

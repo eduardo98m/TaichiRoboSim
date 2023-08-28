@@ -38,10 +38,22 @@
               "state": {
                 "file": "Simulation Pipeline.canvas",
                 "viewState": {
-                  "x": 3636.0916658500373,
-                  "y": -4271.380494047549,
-                  "zoom": -1.6
+                  "x": 3174.464201763527,
+                  "y": -3374.227372791778,
+                  "zoom": -0.5999999999999988
                 }
+              }
+            }
+          },
+          {
+            "id": "2cdea75ea03188c3",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "structs/Constraints/Hinge Joint.md",
+                "mode": "source",
+                "source": false
               }
             }
           },
@@ -61,11 +73,14 @@
             "id": "1a1ce8e14f0db35e",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "canvas",
               "state": {
-                "file": "structs/Constraints/Angular Constraint.md",
-                "mode": "source",
-                "source": false
+                "file": "Simulation Pipeline.canvas",
+                "viewState": {
+                  "x": 3249.0312460299842,
+                  "y": -4245.493272973372,
+                  "zoom": -1.5875666368266956
+                }
               }
             }
           },
@@ -82,7 +97,7 @@
             }
           }
         ],
-        "currentTab": 2
+        "currentTab": 5
       }
     ],
     "direction": "vertical"
@@ -209,19 +224,22 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "b05aa5a6e9e0d9c9",
+  "active": "1a1ce8e14f0db35e",
   "lastOpenFiles": [
-    "structs/Constraints/Hinge Joint.md",
-    "structs/Constraints/Positional Constraint.md",
     "structs/Constraints/Angular Constraint.md",
+    "structs/Constraints/Hinge Joint.md",
     "Simulation Pipeline.canvas",
-    "structs/Constraints",
     "Constraitn.md",
+    "structs/Constraints/Positional Constraint.md",
     "structs/Body.md",
+    "Taichi Robo Sim (TRS).md",
+    "MPC XPDB/Untitled.canvas",
+    "MPC XPDB/MPC.md",
+    "MPC XPDB",
+    "structs/Constraints",
     "Overview.canvas",
     "Untitled.canvas",
     "Taiko.md",
-    "Taichi Robo Sim (TRS).md",
     "structs/Colliders/Sphere.md",
     "structs/Colliders/Plane.md",
     "structs/Colliders/Capsule.md",

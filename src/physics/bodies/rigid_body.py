@@ -16,15 +16,15 @@ class RigidBody:
     ----------
     * mass : ti.types.f32
         Mass of the object
-    * inertia : ti.Matrix(3,3, float)
+    * inertia : ti.types.matrix(3,3, float)
         Inertia tensor of the object
-    * position : ti.Vector(3, float)
+    * position : ti.types.vector(3, float)
         Position of the object in the world
-    * velocity : ti.Vector(3, float)
+    * velocity : ti.types.vector(3, float)
         Velocity of the object
-    * orientation : ti.Vector(4, float)
+    * orientation : ti.types.vector(4, float)
         Orientation of the object in the world as a quaternion
-    * angular_velocity : ti.Vector(3, float)
+    * angular_velocity : ti.types.vector(3, float)
         Angular velocity of the object
     * collider_idx: Collider
         Index of the collider that is attached to the object
@@ -32,26 +32,26 @@ class RigidBody:
         -> Struc that stores the material properties of the object
     """
     mass                  : ti.float32
-    inertia               : ti.Matrix(3,3, ti.float32) 
-    position              : ti.Vector(3,   ti.float32)
-    prev_position         : ti.Vector(3,   ti.float32)
-    velocity              : ti.Vector(3,   ti.float32)
-    prev_velocity         : ti.Vector(3,   ti.float32)
-    external_force        : ti.Vector(3,   ti.float32) 
-    orientation           : ti.Vector(4,   ti.float32)
-    prev_orientation      : ti.Vector(4,   ti.float32) 
-    angular_velocity      : ti.Vector(3,   ti.float32)
-    prev_angular_velocity : ti.Vector(3,   ti.float32)
-    external_torque       : ti.Vector(3,   ti.float32)
-    inv_inertia           : ti.Matrix(3,3, ti.float32)
-    dynamic_inertia       : ti.Matrix(3,3, ti.float32)
-    dynamic_inv_interia   : ti.Matrix(3,3, ti.float32)
+    inertia               : ti.types.matrix(3,3, ti.float32) 
+    position              : ti.types.vector(3,   ti.float32)
+    prev_position         : ti.types.vector(3,   ti.float32)
+    velocity              : ti.types.vector(3,   ti.float32)
+    prev_velocity         : ti.types.vector(3,   ti.float32)
+    external_force        : ti.types.vector(3,   ti.float32) 
+    orientation           : ti.types.vector(4,   ti.float32)
+    prev_orientation      : ti.types.vector(4,   ti.float32) 
+    angular_velocity      : ti.types.vector(3,   ti.float32)
+    prev_angular_velocity : ti.types.vector(3,   ti.float32)
+    external_torque       : ti.types.vector(3,   ti.float32)
+    inv_inertia           : ti.types.matrix(3,3, ti.float32)
+    dynamic_inertia       : ti.types.matrix(3,3, ti.float32)
+    dynamic_inv_interia   : ti.types.matrix(3,3, ti.float32)
     fixed                 : bool
     collider              : Collider
     collision_group       : ti.int32
     material              : Material
-    f_ext                 : ti.Vector(3, ti.float32)
-    t_ext                 : ti.Vector(3, ti.float32)
+    f_ext                 : ti.types.vector(3, ti.float32)
+    t_ext                 : ti.types.vector(3, ti.float32)
 
     def init(self):
         self.prev_position = self.position
@@ -72,8 +72,8 @@ class RigidBody:
             self.dynamic_inv_interia = rotation_matrix @ self.inv_inertia @ rotation_matrix.transpose()
             self.dynamic_inertia     = rotation_matrix @ self.inertia @ rotation_matrix.transpose()
         else:
-            self.dynamic_inv_interia = ti.Matrix.zero(ti.float32, 3)
-            self.dynamic_inertia     = ti.Matrix.zero(ti.float32, 3)
+            self.dynamic_inv_interia = ti.Matrix.zero(ti.float32, 3, 3)
+            self.dynamic_inertia     = ti.Matrix.zero(ti.float32, 3, 3)
     
     @ti.func
     def position_update(self, h: ti.float32):
@@ -128,14 +128,14 @@ class RigidBody:
     
     @ti.func
     def compute_positional_generalized_inverse_mass(self, 
-                                                    r:ti.Vector(3, ti.float32), 
-                                                    n:ti.Vector(3, ti.float32)) -> ti.float32:
+                                                    r:ti.types.vector(3, ti.float32), 
+                                                    n:ti.types.vector(3, ti.float32)) -> ti.float32:
         """
             Arguments:
             ----------
-            * `r` : ti.Vector(3, ti.float32)
+            * `r` : ti.types.vector(3, ti.float32)
                 -> Vector relative to the center of mass of the object, where the constraint is applied.
-            * `n` : ti.Vector(3, ti.float32)
+            * `n` : ti.types.vector(3, ti.float32)
                 -> Normal vector of the constraint
         """
         w = 0.0
@@ -145,13 +145,13 @@ class RigidBody:
         return w
     
     @ti.func
-    def apply_position_correction(self, p : ti.Vector(3, ti.float32), r: ti.Vector(3, ti.float32)):
+    def apply_position_correction(self, p : ti.types.vector(3, ti.float32), r: ti.types.vector(3, ti.float32)):
         """
             Arguments:
             ---------
-            * `p`: ti.Vector(3, ti.float32)
+            * `p`: ti.types.vector(3, ti.float32)
                 -> Positional correction // Impulse
-            * `r` : ti.Vector(3, ti.float32)
+            * `r` : ti.types.vector(3, ti.float32)
                 -> Position of the constraint relative to the object mass center
         """
         if not self.fixed:
@@ -160,11 +160,11 @@ class RigidBody:
             self.orientation = quaternion.rotate_by_axis(self.orientation, self.dynamic_inv_interia @ tm.cross(r, p))
     
     @ti.func
-    def apply_angular_correction(self, p : ti.Vector(3, ti.float32)):
+    def apply_angular_correction(self, p : ti.types.vector(3, ti.float32)):
         """
             Arguments:
             ---------
-            * `p`: ti.Vector(3, ti.float32)
+            * `p`: ti.types.vector(3, ti.float32)
                 -> Angular correction // Impulse
         """
         if not self.fixed:
@@ -172,7 +172,7 @@ class RigidBody:
 
     
     @ti.func
-    def compute_angular_generalize_inverse_mass(self, n: ti.Vector(3, ti.float32)) -> ti.float32:
+    def compute_angular_generalize_inverse_mass(self, n: ti.types.vector(3, ti.float32)) -> ti.float32:
         """
             Arguments:
             ----------
@@ -185,8 +185,7 @@ class RigidBody:
             w = tm.dot(n, self.dynamic_inv_interia @ n)
         return w
     
-    @ti.func
-    def apply_gravity(self, gravity: ti.Vector(3, ti.float32)):
+    def apply_gravity(self, gravity: ti.types.vector(3, ti.float32)):
         """
             Computes the gravitational force applied to the object
 
@@ -195,7 +194,7 @@ class RigidBody:
             Arguments:
             ----------
 
-            gravity : ti.Vector(3, ti.float32)
+            gravity : ti.types.vector(3, ti.float32)
                 -> Gravity Vector (In world coordiantes)
         """
         self.f_ext += self.mass * gravity
@@ -215,13 +214,13 @@ class RigidBody:
 
     
     @ti.func
-    def compute_transformation_matrix(self) -> ti.Matrix(4,4, float):
+    def compute_transformation_matrix(self) -> ti.types.matrix(4,4, float):
 
         # Create the rotation matrix
         rotation_matrix = quaternion.to_rotation_matrix(self.orientation)
 
         # Create the transformation matrix
-        transformation_matrix = ti.Matrix.identity(ti.f32, 4)
+        transformation_matrix = tm.eye(4)
         transformation_matrix[0:3, 0:3] = rotation_matrix
         transformation_matrix[0:3, 3]   = self.position
 

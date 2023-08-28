@@ -1,5 +1,6 @@
 import taichi as ti
 import taichi.math as tm
+import numpy as np
 from time import time, sleep
 from quaternion import quaternion
 from typing import Union
@@ -12,7 +13,7 @@ from src.renderer import render_heightfield, render_plane
 import src.physics.collision as collision
 from src.physics.collision import BoxCollider, SphereCollider, CylinderCollider, HeightFieldCollider, PlaneCollider
 
-from constraints import constraint_types, CollisionPairConstraint
+from constraints import  HingeJointConstraint
 
 from bodies.rigid_body import RigidBody
 from collision_handler import broad_phase_collision_detection, narrow_phase_collision_detection_and_response
@@ -39,11 +40,6 @@ class PhysicsWorld():
         self.materials_list                  = []
 
         self.hinge_constraints_list          = []
-
-        self.box_colliders_list              = []
-        self.sphere_colliders_list           = []
-        self.cyllinder_colliders_list        = []
-        self.plane_colliders_list            = []
 
         self.heightfield_colliders_list      = []
         self.heightfield_x_coord_list        = []
@@ -72,11 +68,31 @@ class PhysicsWorld():
             self.set_visual_objects()
         # Add the rigid bodies in the rigid bodies field
         for i in range(self.n_bodies):
-            self.rigid_bodies[i] = self.bodies_list[i] 
+            self.rigid_bodies[i] = self.bodies_list[i]
         
-        self.precompute_potential_collison_pairs()
 
-    
+        self.enabled_hinge_constraints = False
+        if len(self.hinge_constraints_list) > 0:
+            self.hinge_constraints = HingeJointConstraint.field(shape=(len(self.hinge_constraints_list)))
+            for i in range(len(self.hinge_constraints_list)):
+                self.hinge_constraints[i] = self.hinge_constraints_list[i]
+            self.enabled_hinge_constraints = True
+        else:
+            self.hinge_constraints = HingeJointConstraint.field(shape=(1))
+            self.hinge_constraints[0] = HingeJointConstraint()
+        
+        
+        #self.precompute_potential_collison_pairs()
+        self.set_up_kernel()
+
+    @ti.kernel
+    def set_up_kernel(self):
+
+        for i in range(self.n_bodies):
+            self.rigid_bodies[i].compute_inv_inertia()
+            self.rigid_bodies[i].update_inertia()
+
+
     def add_height_field(self, 
                          height_field  : HeightFieldCollider,
                          x_coordinates,
@@ -93,23 +109,60 @@ class PhysicsWorld():
         self.heightfield_colliders_list.append(height_field)
     
 
-    def create_constraint(
+    def create_hinge_joint_constraint(
             self,
-            constraint_type : ti.types.u32,
-            constraint            
-    ):
+            body_1_idx : ti.types.i32,
+            body_2_idx : ti.types.i32,
+            relative_orientation : ti.types.vector(3, float),
+            r_1        : ti.types.vector(3, float),
+            r_2        : ti.types.vector(3, float),
+            damping    : ti.types.f32,
+            compliance : ti.types.f32, 
+            limited    : bool = False,
+            driven     : bool = False,
+            drive_by_speed : bool = False, 
+            lower_limit : ti.types.f32 = 0.0,
+            upper_limit : ti.types.f32 = 0.0         
+    ):  
+        """
         
-        if constraint_type == constraint_types.HINGE_JOINT:
-            self.hinge_constraints_list.append(constraint)
-            constraint_idx = len(self.hinge_constraints_list) - 1
-            return constraint_idx
-        else:
-            print("Constraint type not supported")
-            return -1
+            `relative_orientation` : ti.types.vector(3, float)
+                -> The relative orientation of the two bodies, in Euler angles.       
+        """
+        axes_1 = np.eye(3)
+        roll  = relative_orientation[0]
+        pitch = relative_orientation[1]
+        yaw   = relative_orientation[2]
+        axes_2 =  tf.rotation_matrix(roll, [1, 0, 0])[:3,:3] @ tf.rotation_matrix(pitch, [0, 1, 0])[:3,:3] @ tf.rotation_matrix(yaw, [0, 0, 1])[:3,:3]
+        
+        constraint = HingeJointConstraint(
+            body_1_idx = body_1_idx,
+            body_2_idx = body_2_idx,
+            axes_1     = axes_1,
+            axes_2     = axes_2,
+            r_1        = r_1,
+            r_2        = r_2,
+            compliance = compliance,
+            damping    = damping,
+            limited    = limited,
+            driven     = driven,
+            drive_by_speed = drive_by_speed,
+            lower_limit = lower_limit,
+            upper_limit = upper_limit
+        )
 
+        constraint.initialize()
+
+        self.hinge_constraints_list.append(constraint)
+
+        
     def set_gravity_vector(self, 
                            gravity_vector : ti.types.vector(3, float)):
         self.gravity_vector = gravity_vector
+
+        for i in range(self.n_bodies):
+            self.bodies_list[i].apply_gravity(gravity_vector)
+
     
     def add_rigid_body(self,
                        body : RigidBody
@@ -125,7 +178,6 @@ class PhysicsWorld():
             * `body` : RigidBody
                 -> The rigid body to be added to the simulation.
         """
-
 
         self.bodies_list.append(body)
         self.n_bodies += 1
@@ -176,44 +228,43 @@ class PhysicsWorld():
         for i in range(self.n_bodies):
             self.rigid_bodies[i].velocity_update(h)
             
-    
 
-    def precompute_potential_collison_pairs(self):
-        """
-            Precompute the collision checks.
+    # def precompute_potential_collison_pairs(self):
+    #     """
+    #         Precompute the collision checks.
 
-            This function is called once at the beginning of the simulation.
+    #         This function is called once at the beginning of the simulation.
 
-            It simply looks at the rigid bodies and checks for possible collision pairs, so the 
-            real collision detection can be done in a more efficient way.
-        """
+    #         It simply looks at the rigid bodies and checks for possible collision pairs, so the 
+    #         real collision detection can be done in a more efficient way.
+    #     """
         
-        for i in range(self.n_bodies):
-            for j in range(i + 1, self.n_bodies):
-                body_1 = self.bodies_list[i]
-                body_2 = self.bodies_list[j]
+    #     for i in range(self.n_bodies):
+    #         for j in range(i + 1, self.n_bodies):
+    #             body_1 = self.bodies_list[i]
+    #             body_2 = self.bodies_list[j]
 
-                if body_1.fixed and body_2.fixed: continue
+    #             if body_1.fixed and body_2.fixed: continue
 
-                #if self.collision_groups_list[body_1.collision_group : body_2.collision_group] == 0: continue
+    #             #if self.collision_groups_list[body_1.collision_group : body_2.collision_group] == 0: continue
 
-                self.potential_collision_pairs_list.append((i, j))
+    #             self.potential_collision_pairs_list.append((i, j))
         
-        # Create a field to store the collision pairs
-        self.collision_pairs_constraints = CollisionPairConstraint.field(shape=(len(self.potential_collision_pairs_list)))
-        self.broad_phase_collision_check = ti.field(dtype=ti.i32, shape=(len(self.potential_collision_pairs_list)))
+    #     # Create a field to store the collision pairs
+    #     self.collision_pairs_constraints = CollisionPairConstraint.field(shape=(len(self.potential_collision_pairs_list)))
+    #     self.broad_phase_collision_check = ti.field(dtype=ti.i32, shape=(len(self.potential_collision_pairs_list)))
 
 
-        # Add the collision pairs to the field
-        for i in range(len(self.potential_collision_pairs_list)):
-            body_1_idx = self.potential_collision_pairs_list[i][0]
-            body_2_idx = self.potential_collision_pairs_list[i][1]
-            body_1 = self.bodies_list[body_1_idx]
-            body_2 = self.bodies_list[body_2_idx]
+    #     # Add the collision pairs to the field
+    #     for i in range(len(self.potential_collision_pairs_list)):
+    #         body_1_idx = self.potential_collision_pairs_list[i][0]
+    #         body_2_idx = self.potential_collision_pairs_list[i][1]
+    #         body_1 = self.bodies_list[body_1_idx]
+    #         body_2 = self.bodies_list[body_2_idx]
             
-            self.collision_pairs_constraints[i].body_1_idx = body_1_idx
-            self.collision_pairs_constraints[i].body_2_idx = body_2_idx
-            self.collision_pairs_constraints[i].init(body_1, body_2)
+    #         self.collision_pairs_constraints[i].body_1_idx = body_1_idx
+    #         self.collision_pairs_constraints[i].body_2_idx = body_2_idx
+    #         self.collision_pairs_constraints[i].init(body_1, body_2)
 
     @ti.kernel
     def broad_phase_collision(self):
@@ -276,24 +327,43 @@ class PhysicsWorld():
             Applies the position correction, for each of the constraints in the 
             simulation.
         """
-        for i in range(self.collision_pairs_constraints.shape[0]):
+        # for i in range(self.collision_pairs_constraints.shape[0]):
             
-            constraint = self.collision_pairs_constraints[i]
+        #     constraint = self.collision_pairs_constraints[i]
 
-            if not constraint.collision: 
-                constraint.reset_lambda()
-                continue
+        #     if not constraint.collision: 
+        #         constraint.reset_lambda()
+        #         continue
             
-            body_1 = self.rigid_bodies[constraint.body_1_idx]
+        #     body_1 = self.rigid_bodies[constraint.body_1_idx]
             
-            body_2 = self.rigid_bodies[constraint.body_2_idx]
+        #     body_2 = self.rigid_bodies[constraint.body_2_idx]
 
-            response = compute_contact_constraint(body_1, body_2, constraint, h)
+        #     response = compute_contact_constraint(body_1, body_2, constraint, h)
 
-            # Udapte the bodies and the constraint
-            self.rigid_bodies[constraint.body_1_idx] = response.body_1
-            self.rigid_bodies[constraint.body_2_idx] = response.body_2
-            self.collision_pairs_constraints[i] = response.contact_constraint
+        #     # Udapte the bodies and the constraint
+        #     self.rigid_bodies[constraint.body_1_idx] = response.body_1
+        #     self.rigid_bodies[constraint.body_2_idx] = response.body_2
+        #     self.collision_pairs_constraints[i] = response.contact_constraint
+        
+        if self.enabled_hinge_constraints:
+            for i in range(self.hinge_constraints.shape[0]):
+                constraint = self.hinge_constraints[i]
+                body_1 = self.rigid_bodies[constraint.body_1_idx]
+                body_2 = self.rigid_bodies[constraint.body_2_idx]
+
+                position_correction = self.hinge_constraints[i].solve_position(body_1, body_2, h)
+                
+                body_1.position    = position_correction.new_position_1
+                body_1.orientation = position_correction.new_orientation_1
+                body_2.position    = position_correction.new_position_2
+                body_2.orientation = position_correction.new_orientation_2
+
+                
+
+                self.rigid_bodies[constraint.body_1_idx] = body_1
+                self.rigid_bodies[constraint.body_2_idx] = body_2
+
     
     @ti.kernel
     def solve_velocities(self, h: ti.f32):
@@ -301,35 +371,51 @@ class PhysicsWorld():
             Applies the position correction, for each of the constraints in the 
             simulation.
         """
-        for i in range(self.collision_pairs_constraints.shape[0]):
+        # for i in range(self.collision_pairs_constraints.shape[0]):
             
-            constraint = self.collision_pairs_constraints[i]
+        #     constraint = self.collision_pairs_constraints[i]
 
-            if not constraint.collision: continue
+        #     if not constraint.collision: continue
             
+        #     body_1 = self.rigid_bodies[constraint.body_1_idx]
+            
+        #     body_2 = self.rigid_bodies[constraint.body_2_idx]
+
+        #     response = compute_contact_velocity_constraint(body_1, body_2, constraint, h, tm.length(self.gravity_vector))
+
+        #     # Update the bodies and the constraint
+        #     self.rigid_bodies[constraint.body_1_idx] = response.body_1
+        #     self.rigid_bodies[constraint.body_2_idx] = response.body_2
+    
+        for i in range(self.hinge_constraints.shape[0]):
+            constraint = self.hinge_constraints[i]
             body_1 = self.rigid_bodies[constraint.body_1_idx]
-            
             body_2 = self.rigid_bodies[constraint.body_2_idx]
 
-            response = compute_contact_velocity_constraint(body_1, body_2, constraint, h, tm.length(self.gravity_vector))
+            correction = self.hinge_constraints[i].solve_velocity(body_1, body_2, h)
+            
+            body_1.orientation = correction.new_orientation_1
+            body_2.orientation = correction.new_orientation_2
 
-            # Udapte the bodies and the constraint
-            self.rigid_bodies[constraint.body_1_idx] = response.body_1
-            self.rigid_bodies[constraint.body_2_idx] = response.body_2
+            self.rigid_bodies[constraint.body_1_idx] = body_1
+            self.rigid_bodies[constraint.body_2_idx] = body_2
+
 
     def step(self):
 
         h = self.dt / self.n_substeps
 
-        self.broad_phase_collision()
+        #self.broad_phase_collision()
 
         for _ in range(self.n_substeps): 
-            self.narrow_phase_collision()  
+            #self.narrow_phase_collision()  
             self.update_rigid_bodies_position_and_orientation(h)
             self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)
             self.solve_velocities(h)
         
+        print("Hinge constraint angle", self.hinge_constraints[0].current_angle * 180 / tm.pi)
+
         if self.visualizer_active:
             self.compute_transformations()
             self.render_collision_bodies()
