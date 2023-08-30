@@ -6,7 +6,7 @@ from bodies import RigidBody
 
 from .constraint import Constraint, ConstraintResponse
 
-EPSILON = 1e-8
+EPSILON = 1e-50
 @ti.func
 def angular_constraint_lagrange_multiplier_update(
     c             : ti.types.f32,
@@ -94,11 +94,8 @@ def compute_angular_constraint(
         # Calculate the Lagrange multiplier update
         delta_lagrange_mult =  angular_constraint_lagrange_multiplier_update(theta, w_1, w_2, lagrange_mult, h, compliance)
 
-        
-    
     # claculate the angular impulse
     impulse = delta_lagrange_mult * n
-
 
     new_orientation_1 = body_1.orientation
     new_orientation_2 = body_2.orientation
@@ -115,7 +112,7 @@ def compute_angular_constraint(
                                                      axis = - body_2.dynamic_inv_interia @ impulse
                                                      )
         
-    torque = impulse/ h**2
+    torque  = (lagrange_mult + delta_lagrange_mult) * n / h**2
 
     return ConstraintResponse(
         torque              = torque,
@@ -164,7 +161,7 @@ def angular_constraint_velocity_update(body_1:RigidBody,
                                                         )
         
         torque = impulse/ h**2
-
+        
         response = ConstraintResponse(
             torque             = torque,
             new_orientation_1  = new_orientation_1,

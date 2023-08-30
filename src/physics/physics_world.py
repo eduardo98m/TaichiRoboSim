@@ -359,8 +359,6 @@ class PhysicsWorld():
                 body_2.position    = position_correction.new_position_2
                 body_2.orientation = position_correction.new_orientation_2
 
-                
-
                 self.rigid_bodies[constraint.body_1_idx] = body_1
                 self.rigid_bodies[constraint.body_2_idx] = body_2
 
@@ -408,12 +406,12 @@ class PhysicsWorld():
         #self.broad_phase_collision()
 
         for _ in range(self.n_substeps): 
-            #self.narrow_phase_collision()  
+            #self.narrow_phase_collision()
             self.update_rigid_bodies_position_and_orientation(h)
             self.solve_positions(h)
             self.update_rigid_bodies_velocities(h)
             self.solve_velocities(h)
-        
+
         print("Hinge constraint angle", self.hinge_constraints[0].current_angle * 180 / tm.pi)
 
         if self.visualizer_active:

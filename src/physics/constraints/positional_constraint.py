@@ -7,7 +7,7 @@ from bodies import RigidBody
 from .constraint import Constraint, ConstraintResponse
 
 
-EPSILON = 1e-30
+EPSILON = 1e-50
 
 @ti.func
 def positional_constraint_lagrange_multiplier_update(
@@ -92,9 +92,7 @@ def compute_positional_constraint(
     compliance = constraint.compliance
 
     delta_lagrange_mult = 0.0
-
-    body_1.update_inertia()
-    body_2.update_inertia()
+    
     w_1 = 0.0
     w_2 = 0.0
     r_1 = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
@@ -103,44 +101,31 @@ def compute_positional_constraint(
         # We need to rotate the r vectors to the world frame
         # And Calculate the generalized inverse mass
         
-        if not body_1.fixed:
-            r_1 = quaternion.rotate_vector(body_1.orientation, r_1_lc)
-            w_1 = positional_contraint_generalized_inverse_mass(body_1.mass, body_1.dynamic_inv_interia, r_1, n)
+        r_1 = quaternion.rotate_vector(body_1.orientation, r_1_lc)
+        w_1 = body_1.compute_positional_generalized_inverse_mass(r_1, n)
         
         
-        if not body_2.fixed:
-            r_2 = quaternion.rotate_vector(body_2.orientation, r_2_lc)
-            w_2 = positional_contraint_generalized_inverse_mass(body_2.mass, body_2.dynamic_inv_interia, r_2, n)
+        r_2 = quaternion.rotate_vector(body_2.orientation, r_2_lc)
+        w_2 = body_2.compute_positional_generalized_inverse_mass(r_2, n)
 
         # Calculate the Lagrange multiplier update
         delta_lagrange_mult = positional_constraint_lagrange_multiplier_update(c, w_1, w_2, lagrange_mult, h, compliance)
 
-    impulse = delta_lagrange_mult * n
-    new_position_1   = body_1.position
-    new_orietation_1 = body_1.orientation
-    new_position_2   = body_2.position 
-    new_orietation_2 = body_2.orientation
+        impulse = delta_lagrange_mult * n 
 
-    # Compute the new position and orientation 
-    if not body_1.fixed:
-        new_position_1   = body_1.position + impulse * w_1
-        new_orietation_1 = quaternion.rotate_by_axis(q = body_1.orientation, 
-                                                     axis = body_1.dynamic_inv_interia @ tm.cross(r_1, impulse),
-                                                     )
+        # Compute the new position and orientation 
+
+        body_1.apply_position_correction(impulse, r_1)
+        body_2.apply_position_correction(-impulse, r_2)
+        
     
-    if not body_2.fixed:
-        new_position_2   = body_2.position - impulse * w_2
-        new_orietation_2 = quaternion.rotate_by_axis(q    = body_2.orientation, 
-                                                     axis =  - body_2.dynamic_inv_interia @ tm.cross(r_2, impulse),
-                                                     )
-    
-    force = impulse / h**2
+    force = (lagrange_mult + delta_lagrange_mult) * n / h**2
     return ConstraintResponse(
         force               = force,
         new_lagrange_mult   = lagrange_mult + delta_lagrange_mult,
-        new_position_1      = new_position_1,
-        new_orientation_1   = new_orietation_1,
-        new_position_2      = new_position_2,
-        new_orientation_2   = new_orietation_2  
+        new_position_1      = body_1.position,
+        new_orientation_1   = body_1.orientation,
+        new_position_2      = body_2.position,
+        new_orientation_2   = body_2.orientation
     )
 

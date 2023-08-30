@@ -121,9 +121,9 @@ class RigidBody:
                                                 ])/  h
 
             if delta_orientation[0] >=  0.0: 
-                self.angular_velocity = - angular_velocity
-            else:
                 self.angular_velocity = angular_velocity
+            else:
+                self.angular_velocity = - angular_velocity
 
     
     @ti.func
@@ -141,7 +141,8 @@ class RigidBody:
         w = 0.0
         if not self.fixed:
             self.update_inertia()
-            w =  1 / self.mass + tm.dot(tm.cross(r, n), self.dynamic_inv_interia @ tm.cross(r, n))
+            r_c_n = tm.cross(r, n)
+            w =  1 / self.mass +  tm.dot(r_c_n, self.dynamic_inv_interia @ r_c_n)
         return w
     
     @ti.func
@@ -152,7 +153,7 @@ class RigidBody:
             * `p`: ti.types.vector(3, ti.float32)
                 -> Positional correction // Impulse
             * `r` : ti.types.vector(3, ti.float32)
-                -> Position of the constraint relative to the object mass center
+                -> Position of the constraint relative to the object mass center (expresed in world coordinates)
         """
         if not self.fixed:
             # NOTE: We do not update the inertia as it is already updated when the generalized inverse mass is calculated
@@ -198,7 +199,6 @@ class RigidBody:
                 -> Gravity Vector (In world coordiantes)
         """
         self.f_ext += self.mass * gravity
-        #self.t_ext += tm.cross(self.position, self.mass * gravity)
 
     @ti.func
     def clear_forces_and_torques(self):

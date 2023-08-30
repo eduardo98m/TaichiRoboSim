@@ -132,34 +132,37 @@ class HingeJointConstraint:
         force  = ti.Vector.zero(ti.f32, 3)
         torque = ti.Vector.zero(ti.f32, 3)
 
-        a_1 = quaternion.rotate_vector(body_1.orientation, self.axes_1[0, :])
-        a_2 = quaternion.rotate_vector(body_2.orientation, self.axes_1[0, :])
-        b_1 = quaternion.rotate_vector(body_1.orientation, self.axes_1[1, :])
-        b_2 = quaternion.rotate_vector(body_2.orientation, self.axes_2[1, :])
+        axes_1 = quaternion.to_rotation_matrix(body_1.orientation)
+        axes_2 = quaternion.to_rotation_matrix(body_2.orientation)
+
+        a_1 = axes_1[0, :]
+        a_2 = axes_2[0, :]
+        b_1 = axes_1[1, :]
+        b_2 = axes_2[1, :]
 
         # Compute the delta rotation between the two objects
 
         delta_q = tm.cross(a_1, a_2)
 
-        self.aligned_constraint.magnitude = tm.length(delta_q)
+        # self.aligned_constraint.magnitude = tm.length(delta_q)
 
-        if self.aligned_constraint.magnitude == 0.0:
-            self.aligned_constraint.direction = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
-        else:
-            self.aligned_constraint.direction = tm.normalize(delta_q)
+        # if self.aligned_constraint.magnitude == 0.0:
+        #     self.aligned_constraint.direction = ti.Vector([0.0, 0.0, 0.0], dt=ti.f32)
+        # else:
+        #     self.aligned_constraint.direction = tm.normalize(delta_q)
         
 
-        # Apply the angular constraint
+        # # Apply the angular constraint
 
-        aligned_constraint_response = compute_angular_constraint(body_1, 
-                                                                body_2,  
-                                                                self.aligned_constraint,
-                                                                h)
+        # aligned_constraint_response = compute_angular_constraint(body_1, 
+        #                                                         body_2,  
+        #                                                         self.aligned_constraint,
+        #                                                         h)
 
-        body_1.orientation = aligned_constraint_response.new_orientation_1
-        body_2.orientation = aligned_constraint_response.new_orientation_2
-        self.aligned_constraint.lagrange_mult = aligned_constraint_response.new_lagrange_mult
-        torque += aligned_constraint_response.torque
+        # body_1.orientation = aligned_constraint_response.new_orientation_1
+        # body_2.orientation = aligned_constraint_response.new_orientation_2
+        # self.aligned_constraint.lagrange_mult = aligned_constraint_response.new_lagrange_mult
+        # torque += aligned_constraint_response.torque
 
 
         # Compute the attachment constraint
@@ -199,7 +202,6 @@ class HingeJointConstraint:
         
         
         if self.limited:
-            
             over_limit, delta_q = angle_limit(a_1, b_1, b_2,  
                                             self.lower_limit, 
                                             self.upper_limit)
@@ -280,7 +282,7 @@ class HingeJointConstraint:
             delta_omega,
             h
         )
-        # self.torque = self.torque + response.torque
+        self.torque = self.torque + response.torque
 
         return PositionCorrection(
             new_orientation_1  = response.new_orientation_1,
